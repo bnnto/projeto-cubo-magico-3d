@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Cubo Mágico 3D</title>
+
+  <!--============================================================
+       CSS
+       Estilos gerais: Bento
+       Estilos do painel (#painel): Lorenna
+  ================================================================ -->
+  <style>
+
+    /* ---------- (Bento) ---------- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; overflow: hidden; }
+    canvas { display: block; }
+
+    /* ---------- (Lorenna) ---------- */
+    #painel {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 15px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- ================================================================
+       PAINEL DE CONTROLES (HTML)
+       (Lorenna)
+       (O seletor de tema de Bento entra aqui dentro, na div indicada)
+       ================================================================ -->
+  <div id="painel">
+    <!-- [Lorenna] botões das faces, embaralhar, reiniciar, contador, mensagens -->
+
+    <!-- [Bento] seletor de tema -->
+  </div>
+
+  <!-- Biblioteca Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- [Bento] tag <script> do OrbitControls -->
+
+  <script>
+
+    // ================================================================
+    // DIVISÃO:
+    //   SEÇÃO 1 – Cena, câmera, renderer e loop ......... Bento
+    //   SEÇÃO 2 – Cubo, cores e temas ................... Bento
+    //   SEÇÃO 3 – Rotação das faces e animação .......... João
+    //   SEÇÃO 4 – Controles, jogo e vitória ............. Lorenna
+    //
+    // Hierarquia base:
+    //   globalGroup  ← escala/rotação aqui afeta o cubo inteiro
+    //     └── cubinhos (27)
+    //   Durante um giro, os cubinhos da face entram num grupo temporário.
+    // ================================================================
+
+
+    // ################################################################
+    // SEÇÃO 1 – CENA, CÂMERA, RENDERER E LOOP        (Bento)
+    // ################################################################
+
+    // --- PILAR 1: SCENE ---
+    const scene = new THREE.Scene(); // contêiner de todos os objetos do mundo 3D
+
+    // --- PILAR 2: CAMERA ---
+    const camera = new THREE.PerspectiveCamera(
+      45,                                     // campo de visão (FOV) em graus
+      window.innerWidth / window.innerHeight, // aspecto = largura / altura da janela
+      0.1,                                    // distância mínima de renderização (near)
+      1000                                    // distância máxima de renderização (far)
+    );
+    camera.position.set(0, 1.5, 12); // posição inicial (ajudar ainda)
+
+    // --- PILAR 3: RENDERER ---
+    const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
+    renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
+    renderer.setClearColor(0x111111);                               // fundo cinza escuro
+    document.body.appendChild(renderer.domElement);                 // insere o canvas gerado na página
+
+    // --- GRUPO GLOBAL (raiz do cubo) ---
+    const globalGroup = new THREE.Group(); // grupo pai de tudo que pertence ao cubo
+    scene.add(globalGroup);                // adiciona à cena para que apareça na renderização
+
+    // --- REDIMENSIONAMENTO DA JANELA ---
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;  // corrige aspecto da câmera
+      camera.updateProjectionMatrix();                         // aplica o novo aspecto
+      renderer.setSize(window.innerWidth, window.innerHeight); // redimensiona o canvas
+    });
+
+    // --- LOOP DE ANIMAÇÃO ---
+    // Chama as funções das outras seções a cada frame.
+    // (atualizarAnimacao() é definida na SEÇÃO 3; mantenha o nome.)
+    function animate() {
+      requestAnimationFrame(animate); // agenda a próxima chamada — cria o loop de 60fps
+
+      atualizarAnimacao();            // [João] avança a animação de rotação da face
+
+      renderer.render(scene, camera); // desenha o frame atual
+    }
+
+    // ################################################################
+    // SEÇÃO 2 – CUBO, CORES E TEMAS                  (Bento)
+    // ################################################################
+
+    // [Bento] Aqui entram:
+    //  geometria compartilhada e os 27 cubinhos
+    //  lista de cubinhos (usada pelas Seções 3 e 4)
+    //  materiais/cores por face
+    //  paletas de tema e função para aplicar tema
+
+
+    // ################################################################
+    // SEÇÃO 3 – ROTAÇÃO DAS FACES E ANIMAÇÃO         (João)
+    // ################################################################
+
+    // [João] Aqui entram:
+    //  definição das 6 faces e seleção dos cubinhos de cada camada
+    //  grupo temporário (anexar, girar e reancorar)
+    //  interpolação do ângulo, fila de movimentos e sentidos
+
+    // Chamada a cada frame pelo loop da SEÇÃO 1.
+    // Por enquanto vazia; a João vai preenchê-la.
+    function atualizarAnimacao() {
+      // [João] avançar a rotação em andamento
+    }
+
+    // ################################################################
+    // SEÇÃO 4 – CONTROLES, JOGO E VITÓRIA            (Lorenna)
+    // ################################################################
+
+    // [Lorenna] Aqui entram:
+    //  listeners de teclado e dos botões do painel
+    //  contador de movimentos e cronômetro
+    //  embaralhar, verificação de resolvido e detecção de vitória
+    //  reiniciar cubo
+
+    animate(); // dispara o loop pela primeira vez
+  </script>
+</body>
+</html>
