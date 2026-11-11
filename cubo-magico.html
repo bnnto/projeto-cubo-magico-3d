@@ -75,7 +75,7 @@
 
     // --- PILAR 2: CAMERA ---
     const camera = new THREE.PerspectiveCamera(
-      90,                                     // campo de visão (FOV) em graus
+      45,                                     // campo de visão (FOV) em graus
       window.innerWidth / window.innerHeight, // aspecto = largura / altura da janela
       0.1,                                    // distância mínima de renderização (near)
       1000                                  // distância máxima de renderização (far)
@@ -125,12 +125,32 @@
     const distancia = 1 + 0.1;
     const cubinhos = [];
 
+    const cores = {
+      direita:  0xff0000,
+      esquerda: 0xff8800,
+      cima:     0xffffff,
+      baixo:    0xffff00,
+      frente:   0x00aa00,
+      tras:     0x0044ff
+    };
+
+    function listaMateriais(x, y, z){
+      return [
+        new THREE.MeshBasicMaterial({ color: x === 1 ? cores.direita : 0x000000 }),
+        new THREE.MeshBasicMaterial({ color: x === -1 ? cores.esquerda : 0x000000 }),
+        new THREE.MeshBasicMaterial({ color: y === 1 ? cores.cima : 0x000000 }),
+        new THREE.MeshBasicMaterial({ color: y === -1 ? cores.baixo : 0x000000 }),
+        new THREE.MeshBasicMaterial({ color: z === 1 ? cores.frente : 0x000000 }),
+        new THREE.MeshBasicMaterial({ color: z === -1 ? cores.tras : 0x000000 }),
+      ]
+    }
+
     for (let x = -1; x <= 1; x++) {
       for (let y = -1; y <= 1; y++) {
         for (let z = -1; z <= 1; z++) {
           const cubo = new THREE.Mesh(
             geoCubo,
-            new THREE.MeshBasicMaterial({ color: 0x0044ff })
+            listaMateriais(x,y,z)
           );
           cubo.position.x = x * distancia;
           cubo.position.y = y * distancia;
