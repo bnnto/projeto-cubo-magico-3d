@@ -80,8 +80,9 @@
       0.1,                                    // distância mínima de renderização (near)
       1000                                    // distância máxima de renderização (far)
     );
-    camera.position.set(0, 1.5, 12); // posição inicial (ajudar ainda)
-
+    camera.position.set(0, 1.5, 12); // posição inicial, enquadra o cubo 3x3x3
+    camera.lookAt(0, 0, 0);
+    
     // --- PILAR 3: RENDERER ---
     const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
     renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
