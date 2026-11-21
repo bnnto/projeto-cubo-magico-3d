@@ -193,6 +193,38 @@
       return cubinhos.filter(c => c[def.eixo] === def.camada);  // filtra pela camada
     }
 
+    // ----------------------------------------------------------------
+    // 3.2  GRUPO TEMPORÁRIO: ANEXAR E REANCORAR
+    // ----------------------------------------------------------------
+    // Ainda não há ângulo nem animação: este commit só prova que dá para
+    // tirar os 9 cubinhos do globalGroup, colocá-los num grupo temporário
+    // e devolvê-los SEM que eles mudem de lugar na tela.
+
+    let giroAtual = null; // dados do giro em andamento (null = nenhum)
+
+    // Começa um giro: cria o grupo temporário e coloca nele os 9 cubinhos da face.
+    function iniciarGiro(letra) {
+      const def = FACES[letra];                    // definição da face (eixo e camada)
+
+      const grupo = new THREE.Group();             // grupo temporário que (futuramente) vai girar
+      globalGroup.add(grupo);                      // fica dentro do globalGroup (herda escala/rotação do cubo)
+
+      const pecas = pecasDaFace(letra);            // os 9 cubinhos da camada
+      pecas.forEach(c => grupo.attach(c.mesh));    // attach = troca o pai SEM mover o cubinho visualmente
+
+      giroAtual = { face: letra, eixo: def.eixo, grupo: grupo, pecas: pecas };
+    }
+
+    // Termina o giro: devolve os cubinhos ao globalGroup e descarta o grupo temporário.
+    function finalizarGiro() {
+      const g = giroAtual;
+
+      g.pecas.forEach(c => globalGroup.attach(c.mesh)); // reancora: volta para o globalGroup mantendo o visual
+
+      globalGroup.remove(g.grupo);                      // o grupo temporário não é mais necessário
+      giroAtual = null;                                 // libera para um novo giro
+    }
+
     // Chamada a cada frame pelo loop da SEÇÃO 1.
     // Por enquanto vazia; será preenchida no commit 5 (animação suave).
     function atualizarAnimacao() {
