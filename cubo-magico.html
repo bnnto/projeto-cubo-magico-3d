@@ -13,7 +13,7 @@
 
     /* ---------- (Bento) ---------- */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #111; overflow: hidden; }
+    body { background: #1a1a24; overflow: hidden; }
     canvas { display: block; }
 
     /* ---------- (Lorenna) ---------- */
@@ -48,7 +48,7 @@
 
   <!-- Biblioteca Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- [Bento] tag <script> do OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <script>
 
@@ -80,18 +80,29 @@
       0.1,                                    // distância mínima de renderização (near)
       1000                                  // distância máxima de renderização (far)
     );
-    camera.position.set(0, 1.5, 8); // posição inicial, enquadra o cubo 3x3x3
+    camera.position.set(5, 4.5, 7.5); // vista diagonal: enxerga frente, topo e lado direito
     camera.lookAt(0, 0, 0);
     
     // --- PILAR 3: RENDERER ---
     const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
     renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
-    renderer.setClearColor(0x111111);                               // fundo cinza escuro
+    renderer.setClearColor(0x1a1a24);                               // fundo azul escuro
     document.body.appendChild(renderer.domElement);                 // insere o canvas gerado na página
 
     // --- GRUPO GLOBAL (raiz do cubo) ---
     const globalGroup = new THREE.Group(); // grupo pai de tudo que pertence ao cubo
     scene.add(globalGroup);                // adiciona à cena para que apareça na renderização
+
+    // --- BENTO - ORBITCONTROLS (órbita com o mouse) ---
+    const controls = new THREE.OrbitControls(camera, renderer.domElement); // câmera orbita ao arrastar o mouse
+    controls.target.set(0, 0, 0);   // a câmera sempre olha para o centro do cubo
+    controls.enableDamping = true;  // suaviza o movimento (inércia)
+    controls.dampingFactor = 0.08;  // quanto menor, mais "deslizante"
+    controls.enableZoom = true;     // zoom com a roda do mouse
+    controls.minDistance = 5;       // não deixa entrar dentro do cubo
+    controls.maxDistance = 20;      // não deixa afastar demais
+    controls.enablePan = false;     // desativa arrastar lateral (botão direito) para o cubo não sair do centro
+    controls.update();              // aplica a configuração inicial
 
     // --- REDIMENSIONAMENTO DA JANELA ---
     window.addEventListener('resize', () => {
@@ -100,12 +111,22 @@
       renderer.setSize(window.innerWidth, window.innerHeight); // redimensiona o canvas
     });
 
+    // --- ESCALA GLOBAL (Page Up / Page Down) ---
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'PageUp')   globalGroup.scale.multiplyScalar(1.1);  // aumenta o cubo
+      if (e.key === 'PageDown') globalGroup.scale.multiplyScalar(1 / 1.1); // diminui o cubo
+      // limita a escala para o cubo não sumir nem estourar a tela
+      const s = THREE.MathUtils.clamp(globalGroup.scale.x, 0.5, 2);
+      globalGroup.scale.set(s, s, s);
+    });
+
     // --- LOOP DE ANIMAÇÃO ---
     // Chama as funções das outras seções a cada frame.
     // (atualizarAnimacao() é definida na SEÇÃO 3; mantenha o nome.)
     function animate() {
       requestAnimationFrame(animate); // agenda a próxima chamada — cria o loop de 60fps
 
+      controls.update();              // [Bento] necessário para o damping funcionar
       atualizarAnimacao();            // [João] avança a animação de rotação da face
 
       renderer.render(scene, camera); // desenha o frame atual
@@ -125,24 +146,57 @@
     const distancia = 1 + 0.1;
     const cubinhos = [];
 
-    const cores = {
-      direita:  0xff0000,
-      esquerda: 0xff8800,
-      cima:     0xffffff,
-      baixo:    0xffff00,
-      frente:   0x00aa00,
-      tras:     0x0044ff
+    // Contorno escuro (compartilhado pelos 27 cubinhos, como a geoCubo)
+    const geoArestas = new THREE.EdgesGeometry(geoCubo); // só as 12 arestas do cubo
+    const matArestas = new THREE.LineBasicMaterial({ color: 0x000000 }); // linha preta
+
+    // --- PALETAS DE TEMA ---
+    // Cada tema define a cor das 6 faces. As chaves seguem o nome do lado do cubo.
+    const TEMAS = {
+      classico: {
+        nome:     'Clássico',
+        direita:  0xff0000,  // vermelho
+        esquerda: 0xff8800,  // laranja
+        cima:     0xffffff,  // branco
+        baixo:    0xffff00,  // amarelo
+        frente:   0x00aa00,  // verde
+        tras:     0x0044ff   // azul
+      },
+      neon: {
+        nome:     'Escuro / Neon',
+        direita:  0xff0055,  // rosa-vermelho
+        esquerda: 0xff9100,  // laranja vivo
+        cima:     0xe8e8ff,  // branco azulado
+        baixo:    0xf2ff00,  // amarelo limão
+        frente:   0x00ff66,  // verde neon
+        tras:     0x00b3ff   // ciano
+      },
+      pastel: {
+        nome:     'Pastel',
+        direita:  0xff8fa3,  // rosa
+        esquerda: 0xffc08a,  // pêssego
+        cima:     0xffffff,  // branco
+        baixo:    0xfdf29a,  // amarelo claro
+        frente:   0xa8e6bf,  // verde menta
+        tras:     0x9cc5ff   // azul bebê
+      }
     };
 
+    let temaAtual = 'classico';   // tema ativo (o commit 8 vai trocar isso em tempo real)
+    const COR_INTERNA = 0x000000; // faces voltadas para dentro do cubo
+
+    // Cria os 6 materiais de um cubinho lendo as cores do tema ativo.
+    // Ordem do Three.js: +x, -x, +y, -y, +z, -z
     function listaMateriais(x, y, z){
+      const cores = TEMAS[temaAtual];
       return [
-        new THREE.MeshBasicMaterial({ color: x === 1 ? cores.direita : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: x === -1 ? cores.esquerda : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: y === 1 ? cores.cima : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: y === -1 ? cores.baixo : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: z === 1 ? cores.frente : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: z === -1 ? cores.tras : 0x000000 }),
-      ]
+        new THREE.MeshBasicMaterial({ color: x ===  1 ? cores.direita  : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: x === -1 ? cores.esquerda : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: y ===  1 ? cores.cima     : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: y === -1 ? cores.baixo    : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: z ===  1 ? cores.frente   : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: z === -1 ? cores.tras     : COR_INTERNA }),
+      ];
     }
 
     for (let x = -1; x <= 1; x++) {
@@ -156,6 +210,7 @@
           cubo.position.y = y * distancia;
           cubo.position.z = z * distancia;
           cubinhos.push({mesh: cubo, x, y, z});
+          cubo.add(new THREE.LineSegments(geoArestas, matArestas)); // contorno como filho do cubinho
           globalGroup.add(cubo);
         }       
       }
