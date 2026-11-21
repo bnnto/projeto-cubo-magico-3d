@@ -31,6 +31,23 @@
       text-align: center;
     }
 
+    #painel button {
+      background: #3a3a4d;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin: 3px;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #painel button:hover { background: #55556e; }
+    #botoes-faces, #acoes { margin-bottom: 6px; }
+    #info { font-size: 14px; }
+    #mensagem { margin-top: 4px; min-height: 18px; color: #7dffa0; }
+    #atalhos { margin-top: 6px; font-size: 12px; color: #aaa; }
+
   </style>
 </head>
 <body>
@@ -42,7 +59,22 @@
        ================================================================ -->
   <div id="painel">
     <!-- [Lorenna] botões das faces, embaralhar, reiniciar, contador, mensagens -->
+     <div id="botoes-faces">
+    <button data-face="U">U</button>
+    <button data-face="D">D</button>
+    <button data-face="F">F</button>
+    <button data-face="B">B</button>
+    <button data-face="L">L</button>
+    <button data-face="R">R</button>
+  </div>
 
+  <div id="acoes">
+    <button id="btn-embaralhar">Embaralhar</button>
+  </div>
+
+  <div id="info">Movimentos: <span id="contador">0</span></div>
+  <div id="mensagem"></div>
+  <div id="atalhos">Teclas: U D F B L R &nbsp;|&nbsp; Shift = sentido inverso</div>
     <!-- [Bento] seletor de tema -->
   </div>
 
@@ -388,7 +420,7 @@
     // Só para testar a mecânica enquanto a Seção 4 não existe.
     // [Lorenna] quando você ligar os seus controles, troque para false
     // (ou apague este bloco) para os giros não serem disparados em dobro.
-    const ATIVAR_TECLAS_DE_TESTE = true;
+    const ATIVAR_TECLAS_DE_TESTE = false;
 
     if (ATIVAR_TECLAS_DE_TESTE) {
       document.addEventListener('keydown', (e) => {
@@ -402,12 +434,25 @@
     // ################################################################
     // SEÇÃO 4 – CONTROLES, JOGO E VITÓRIA            (Lorenna)
     // ################################################################
+    // --- BOTÕES DAS FACES ---
+    // Cada botão tem data-face="U", "D", etc. Shift + clique = sentido inverso.
+    const botoesFaces = document.querySelectorAll('#painel [data-face]');
+    for (let i = 0; i < botoesFaces.length; i++) {
+      botoesFaces[i].addEventListener('click', (e) => {
+        const letra = botoesFaces[i].dataset.face;
+        girarFace(letra, e.shiftKey);
+      });
+    }
 
-    // [Lorenna] Aqui entram:
-    //  listeners de teclado e dos botões do painel
-    //  contador de movimentos e cronômetro
-    //  embaralhar, verificação de resolvido e detecção de vitória
-    //  reiniciar cubo
+    // --- TECLADO ---
+    // U, D, F, B, L, R giram a face. Com Shift, gira no sentido inverso.
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador (Ctrl+R etc.)
+      const letra = e.key.toUpperCase();
+      if (FACES[letra]) {
+        girarFace(letra, e.shiftKey);
+      }
+    });
 
     animate(); // dispara o loop pela primeira vez
   </script>
