@@ -13,7 +13,7 @@
 
     /* ---------- (Bento) ---------- */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #111; overflow: hidden; }
+    body { background: #1a1a24; overflow: hidden; }
     canvas { display: block; }
 
     /* ---------- (Lorenna) ---------- */
@@ -80,13 +80,13 @@
       0.1,                                    // distância mínima de renderização (near)
       1000                                  // distância máxima de renderização (far)
     );
-    camera.position.set(0, 1.5, 8); // posição inicial, enquadra o cubo 3x3x3
+    camera.position.set(5, 4.5, 7.5); // vista diagonal: enxerga frente, topo e lado direito
     camera.lookAt(0, 0, 0);
     
     // --- PILAR 3: RENDERER ---
     const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
     renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
-    renderer.setClearColor(0x111111);                               // fundo cinza escuro
+    renderer.setClearColor(0x1a1a24);                               // fundo azul escuro
     document.body.appendChild(renderer.domElement);                 // insere o canvas gerado na página
 
     // --- GRUPO GLOBAL (raiz do cubo) ---
@@ -109,6 +109,15 @@
       camera.aspect = window.innerWidth / window.innerHeight;  // corrige aspecto da câmera
       camera.updateProjectionMatrix();                         // aplica o novo aspecto
       renderer.setSize(window.innerWidth, window.innerHeight); // redimensiona o canvas
+    });
+
+    // --- ESCALA GLOBAL (Page Up / Page Down) ---
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'PageUp')   globalGroup.scale.multiplyScalar(1.1);  // aumenta o cubo
+      if (e.key === 'PageDown') globalGroup.scale.multiplyScalar(1 / 1.1); // diminui o cubo
+      // limita a escala para o cubo não sumir nem estourar a tela
+      const s = THREE.MathUtils.clamp(globalGroup.scale.x, 0.5, 2);
+      globalGroup.scale.set(s, s, s);
     });
 
     // --- LOOP DE ANIMAÇÃO ---
@@ -136,6 +145,10 @@
     const geoCubo = new THREE.BoxGeometry(1,1,1);
     const distancia = 1 + 0.1;
     const cubinhos = [];
+
+    // Contorno escuro (compartilhado pelos 27 cubinhos, como a geoCubo)
+    const geoArestas = new THREE.EdgesGeometry(geoCubo); // só as 12 arestas do cubo
+    const matArestas = new THREE.LineBasicMaterial({ color: 0x000000 }); // linha preta
 
     const cores = {
       direita:  0xff0000,
@@ -168,6 +181,7 @@
           cubo.position.y = y * distancia;
           cubo.position.z = z * distancia;
           cubinhos.push({mesh: cubo, x, y, z});
+          cubo.add(new THREE.LineSegments(geoArestas, matArestas)); // contorno como filho do cubinho
           globalGroup.add(cubo);
         }       
       }
