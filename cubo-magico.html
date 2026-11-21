@@ -287,30 +287,41 @@
     const DURACAO_NORMAL  = 400;         // duração de um giro, em milissegundos
 
     // PROVISÓRIO: faces que já podem girar. Vai crescendo a cada commit
-    // (commit 7 acrescenta D e L; commit 8 acrescenta B e R).
+    // (commit 7 acrescenta D e L; commit 8 acrescenta B e R e remove esta lista).
     const FACES_LIBERADAS = ['U', 'F'];
 
     let giroAtual = null; // dados do giro em andamento (null = nenhum)
+    const fila = [];      // letras das faces esperando a vez de girar, em ordem de chegada
 
     // ----------------------------------------------------------------
     // 3.3  FUNÇÕES PARA PEDIR UM GIRO
     // ----------------------------------------------------------------
 
     // Pede um giro ANIMADO de uma face, no sentido horário visto de fora do cubo.
-    // PROVISÓRIO: se já houver um giro em andamento, o pedido é ignorado.
-    // (O commit 6 troca isso por uma fila de movimentos.)
-    // Devolve true se o giro começou.
+    // O pedido entra no fim da fila: se já houver um giro em andamento, ele espera
+    // a vez e é executado em seguida (nunca há dois giros ao mesmo tempo).
+    // Devolve true se o pedido foi aceito.
     function girarFace(letra) {
-      if (!FACES_LIBERADAS.includes(letra)) return false; // face ainda não liberada
-      if (giroAtual !== null) return false;               // já existe um giro acontecendo
-      iniciarGiro(letra);                                 // a animação é feita por atualizarAnimacao()
+      if (!FACES_LIBERADAS.includes(letra)) return false;   // face inexistente ou ainda não liberada
+      fila.push(letra);                 // entra no fim da fila; quem executa é atualizarAnimacao()
       return true;
     }
 
+    // Diz se existe giro em andamento OU movimentos esperando na fila.
+    // Útil para desabilitar botões e saber quando uma sequência terminou.
+    function animacaoOcupada() {
+      return giroAtual !== null || fila.length > 0;
+    }
+
+    // Descarta os movimentos que ainda não começaram (o giro atual termina normalmente).
+    function limparFila() {
+      fila.length = 0;
+    }
+
     // Gira uma face NA HORA, sem animação (útil para testes).
-    // Ignorado se já houver um giro em andamento ou se a face ainda não foi liberada.
+    // Ignorado se houver animação em andamento ou se a face for inválida.
     function girarFaceInstantaneo(letra) {
-      if (giroAtual !== null || !FACES_LIBERADAS.includes(letra)) return;
+      if (animacaoOcupada() || !FACES_LIBERADAS.includes(letra)) return;
       iniciarGiro(letra);   // anexa os cubinhos ao grupo temporário
       finalizarGiro();      // aplica os 90° de uma vez e reancora
     }
@@ -359,7 +370,7 @@
       });
 
       globalGroup.remove(g.grupo);                 // o grupo temporário não é mais necessário
-      giroAtual = null;                            // libera para um novo giro
+      giroAtual = null;                            // libera para o próximo giro
     }
 
     // Limpa a imprecisão numérica de um cubinho e atualiza sua posição lógica.
@@ -401,7 +412,11 @@
     }
 
     function atualizarAnimacao() {
-      if (giroAtual === null) return;   // nenhum giro em andamento: nada a fazer neste frame
+      // Nenhum giro em andamento? Tenta começar o próximo da fila.
+      if (giroAtual === null) {
+        if (fila.length === 0) return;   // fila vazia: nada a fazer neste frame
+        iniciarGiro(fila.shift());       // tira o primeiro da fila e começa
+      }
 
       // Fração do tempo já decorrida (0 → 1), baseada no relógio real
       // (assim a velocidade não depende dos FPS do computador).
@@ -410,7 +425,7 @@
       // Aplica ao grupo temporário o ângulo interpolado e suavizado.
       giroAtual.grupo.rotation[giroAtual.eixo] = giroAtual.anguloAlvo * suavizar(t);
 
-      // Chegou ao fim? Crava os 90°, reancora as peças e libera um novo giro.
+      // Chegou ao fim? Crava os 90°, reancora as peças e libera o próximo giro.
       if (t >= 1) finalizarGiro();
     }
 
@@ -425,7 +440,7 @@
     if (ATIVAR_TECLAS_DE_TESTE) {
       document.addEventListener('keydown', (e) => {
         const letra = e.key.toUpperCase();                           // 'u' e 'U' viram 'U'
-        if (letra.length === 1 && FACES_LIBERADAS.includes(letra)) { // é uma face já liberada?
+        if (letra.length === 1 && FACES_LIBERADAS.includes(letra)) {                          // é uma face válida?
           girarFace(letra);
         }
       });
