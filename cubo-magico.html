@@ -286,10 +286,6 @@
     const QUARTO_DE_VOLTA = Math.PI / 2; // 90° em radianos (um giro de face)
     const DURACAO_NORMAL  = 400;         // duração de um giro, em milissegundos
 
-    // PROVISÓRIO: faces que já podem girar. Vai crescendo a cada commit
-    // (commit 7 acrescenta D e L; commit 8 acrescenta B e R e remove esta lista).
-    const FACES_LIBERADAS = ['U', 'F', 'D', 'L'];
-
     let giroAtual = null; // dados do giro em andamento (null = nenhum)
     const fila = [];      // letras das faces esperando a vez de girar, em ordem de chegada
 
@@ -302,7 +298,7 @@
     // a vez e é executado em seguida (nunca há dois giros ao mesmo tempo).
     // Devolve true se o pedido foi aceito.
     function girarFace(letra) {
-      if (!FACES_LIBERADAS.includes(letra)) return false;   // face inexistente ou ainda não liberada
+      if (!FACES[letra]) return false;   // face inexistente
       fila.push(letra);                 // entra no fim da fila; quem executa é atualizarAnimacao()
       return true;
     }
@@ -321,7 +317,7 @@
     // Gira uma face NA HORA, sem animação (útil para testes).
     // Ignorado se houver animação em andamento ou se a face for inválida.
     function girarFaceInstantaneo(letra) {
-      if (animacaoOcupada() || !FACES_LIBERADAS.includes(letra)) return;
+      if (animacaoOcupada() || !FACES[letra]) return;
       iniciarGiro(letra);   // anexa os cubinhos ao grupo temporário
       finalizarGiro();      // aplica os 90° de uma vez e reancora
     }
@@ -440,7 +436,7 @@
     if (ATIVAR_TECLAS_DE_TESTE) {
       document.addEventListener('keydown', (e) => {
         const letra = e.key.toUpperCase();                           // 'u' e 'U' viram 'U'
-        if (letra.length === 1 && FACES_LIBERADAS.includes(letra)) {                          // é uma face válida?
+        if (letra.length === 1 && FACES[letra]) {                          // é uma face válida?
           girarFace(letra);
         }
       });
