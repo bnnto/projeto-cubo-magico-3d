@@ -165,13 +165,36 @@
     // SEÇÃO 3 – ROTAÇÃO DAS FACES E ANIMAÇÃO         (João)
     // ################################################################
 
-    // [João] Aqui entram:
-    //  definição das 6 faces e seleção dos cubinhos de cada camada
-    //  grupo temporário (anexar, girar e reancorar)
-    //  interpolação do ângulo, fila de movimentos e sentidos
+    // ----------------------------------------------------------------
+    // 3.1  DEFINIÇÃO DAS 6 FACES
+    // ----------------------------------------------------------------
+    // Cada face é descrita por:
+    //   nome   → texto amigável (útil para a interface)
+    //   eixo   → em torno de qual eixo a face gira ('x', 'y' ou 'z')
+    //   camada → qual fatia do cubo ela é nesse eixo:
+    //            +1 = lado positivo do eixo, -1 = lado negativo
+    // As letras seguem a notação oficial do cubo mágico:
+    //   U = Up (superior), D = Down (inferior), F = Front (frontal),
+    //   B = Back (traseira), L = Left (esquerda), R = Right (direita)
+    const FACES = {
+      U: { nome: 'Superior', eixo: 'y', camada:  1 },
+      D: { nome: 'Inferior', eixo: 'y', camada: -1 },
+      F: { nome: 'Frontal',  eixo: 'z', camada:  1 },
+      B: { nome: 'Traseira', eixo: 'z', camada: -1 },
+      R: { nome: 'Direita',  eixo: 'x', camada:  1 },
+      L: { nome: 'Esquerda', eixo: 'x', camada: -1 }
+    };
+
+    // Devolve os 9 cubinhos que pertencem à face pedida.
+    // Usa a posição LÓGICA (c.x, c.y, c.z), que vale -1, 0 ou 1.
+    // Ex.: face 'U' → todos os cubinhos com c.y === 1.
+    function pecasDaFace(letra) {
+      const def = FACES[letra];                                 // pega a definição da face
+      return cubinhos.filter(c => c[def.eixo] === def.camada);  // filtra pela camada
+    }
 
     // Chamada a cada frame pelo loop da SEÇÃO 1.
-    // Por enquanto vazia; a João vai preenchê-la.
+    // Por enquanto vazia; será preenchida no commit 5 (animação suave).
     function atualizarAnimacao() {
       // [João] avançar a rotação em andamento
     }
