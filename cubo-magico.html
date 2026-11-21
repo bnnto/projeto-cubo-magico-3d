@@ -194,35 +194,104 @@
     }
 
     // ----------------------------------------------------------------
-    // 3.2  GRUPO TEMPORÁRIO: ANEXAR E REANCORAR
+    // 3.2  CONSTANTES E ESTADO
     // ----------------------------------------------------------------
-    // Ainda não há ângulo nem animação: este commit só prova que dá para
-    // tirar os 9 cubinhos do globalGroup, colocá-los num grupo temporário
-    // e devolvê-los SEM que eles mudem de lugar na tela.
+    const QUARTO_DE_VOLTA = Math.PI / 2; // 90° em radianos (um giro de face)
+
+    // PROVISÓRIO: faces que já podem girar. Vai crescendo a cada commit
+    // (commit 7 acrescenta D e L; commit 8 acrescenta B e R).
+    const FACES_LIBERADAS = ['U'];
 
     let giroAtual = null; // dados do giro em andamento (null = nenhum)
+
+    // ----------------------------------------------------------------
+    // 3.3  GIRO INSTANTÂNEO (sem animação)
+    // ----------------------------------------------------------------
+
+    // Gira uma face NA HORA, no sentido horário visto de fora do cubo.
+    // Ignorado se já houver um giro em andamento ou se a face ainda não foi liberada.
+    function girarFaceInstantaneo(letra) {
+      if (giroAtual !== null || !FACES_LIBERADAS.includes(letra)) return;
+      iniciarGiro(letra);   // anexa os cubinhos ao grupo temporário
+      finalizarGiro();      // aplica os 90° de uma vez e reancora
+    }
 
     // Começa um giro: cria o grupo temporário e coloca nele os 9 cubinhos da face.
     function iniciarGiro(letra) {
       const def = FACES[letra];                    // definição da face (eixo e camada)
 
-      const grupo = new THREE.Group();             // grupo temporário que (futuramente) vai girar
+      const grupo = new THREE.Group();             // grupo temporário que vai girar
       globalGroup.add(grupo);                      // fica dentro do globalGroup (herda escala/rotação do cubo)
 
       const pecas = pecasDaFace(letra);            // os 9 cubinhos da camada
       pecas.forEach(c => grupo.attach(c.mesh));    // attach = troca o pai SEM mover o cubinho visualmente
 
-      giroAtual = { face: letra, eixo: def.eixo, grupo: grupo, pecas: pecas };
+      // Sentido horário visto de fora do cubo. No Three.js, ângulo positivo gira
+      // no sentido anti-horário visto do lado POSITIVO do eixo. Logo, nas faces do
+      // lado positivo (U, F, R) o horário é negativo; nas do lado negativo (D, B, L) é positivo.
+      const anguloAlvo = -def.camada * QUARTO_DE_VOLTA;
+
+      giroAtual = { face: letra, eixo: def.eixo, anguloAlvo: anguloAlvo, grupo: grupo, pecas: pecas };
     }
 
-    // Termina o giro: devolve os cubinhos ao globalGroup e descarta o grupo temporário.
+    // Termina o giro: crava o ângulo final, devolve os cubinhos ao globalGroup
+    // (reancorar), limpa erros numéricos e atualiza as posições lógicas.
     function finalizarGiro() {
       const g = giroAtual;
 
-      g.pecas.forEach(c => globalGroup.attach(c.mesh)); // reancora: volta para o globalGroup mantendo o visual
+      g.grupo.rotation[g.eixo] = g.anguloAlvo;     // aplica o ângulo exato (±90°) ao grupo
+      g.grupo.updateMatrixWorld(true);             // garante que a matriz do grupo está atualizada
 
-      globalGroup.remove(g.grupo);                      // o grupo temporário não é mais necessário
-      giroAtual = null;                                 // libera para um novo giro
+      g.pecas.forEach(c => {
+        globalGroup.attach(c.mesh);                // devolve o cubinho ao globalGroup mantendo o visual
+        arredondarPeca(c);                         // elimina erros de ponto flutuante
+      });
+
+      globalGroup.remove(g.grupo);                 // o grupo temporário não é mais necessário
+      giroAtual = null;                            // libera para um novo giro
+    }
+
+    // Limpa a imprecisão numérica de um cubinho e atualiza sua posição lógica.
+    function arredondarPeca(c) {
+      const m = c.mesh;
+
+      // Posição: força para o múltiplo exato de "distancia" mais próximo.
+      m.position.set(
+        Math.round(m.position.x / distancia) * distancia,
+        Math.round(m.position.y / distancia) * distancia,
+        Math.round(m.position.z / distancia) * distancia
+      );
+
+      // Rotação: força cada ângulo para o múltiplo de 90° mais próximo.
+      const arredonda90 = (ang) => Math.round(ang / QUARTO_DE_VOLTA) * QUARTO_DE_VOLTA;
+      m.rotation.set(
+        arredonda90(m.rotation.x),
+        arredonda90(m.rotation.y),
+        arredonda90(m.rotation.z)
+      );
+
+      // Posição lógica (-1, 0 ou 1): decide a qual camada o cubinho pertence no
+      // PRÓXIMO giro. Se não for atualizada, as faces seguintes ficam erradas.
+      c.x = Math.round(m.position.x / distancia);
+      c.y = Math.round(m.position.y / distancia);
+      c.z = Math.round(m.position.z / distancia);
+    }
+
+    // ----------------------------------------------------------------
+    // 3.4  TECLAS DE TESTE (TEMPORÁRIO)
+    // ----------------------------------------------------------------
+    // Só para testar a mecânica enquanto a Seção 4 não existe.
+    // [Lorenna] quando você ligar os seus controles, troque para false
+    // (ou apague este bloco) para os giros não serem disparados em dobro.
+    const ATIVAR_TECLAS_DE_TESTE = true;
+
+    if (ATIVAR_TECLAS_DE_TESTE) {
+      document.addEventListener('keydown', (e) => {
+        const letra = e.key.toUpperCase();                           // 'u' e 'U' viram 'U'
+        if (letra.length === 1 && FACES_LIBERADAS.includes(letra)) { // é uma face já liberada?
+          girarFaceInstantaneo(letra);
+        }
+      });
     }
 
     // Chamada a cada frame pelo loop da SEÇÃO 1.
