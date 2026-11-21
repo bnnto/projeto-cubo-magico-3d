@@ -197,6 +197,7 @@
     // 3.2  CONSTANTES E ESTADO
     // ----------------------------------------------------------------
     const QUARTO_DE_VOLTA = Math.PI / 2; // 90° em radianos (um giro de face)
+    const DURACAO_NORMAL  = 400;         // duração de um giro, em milissegundos
 
     // PROVISÓRIO: faces que já podem girar. Vai crescendo a cada commit
     // (commit 7 acrescenta D e L; commit 8 acrescenta B e R).
@@ -205,16 +206,31 @@
     let giroAtual = null; // dados do giro em andamento (null = nenhum)
 
     // ----------------------------------------------------------------
-    // 3.3  GIRO INSTANTÂNEO (sem animação)
+    // 3.3  FUNÇÕES PARA PEDIR UM GIRO
     // ----------------------------------------------------------------
 
-    // Gira uma face NA HORA, no sentido horário visto de fora do cubo.
+    // Pede um giro ANIMADO de uma face, no sentido horário visto de fora do cubo.
+    // PROVISÓRIO: se já houver um giro em andamento, o pedido é ignorado.
+    // (O commit 6 troca isso por uma fila de movimentos.)
+    // Devolve true se o giro começou.
+    function girarFace(letra) {
+      if (!FACES_LIBERADAS.includes(letra)) return false; // face ainda não liberada
+      if (giroAtual !== null) return false;               // já existe um giro acontecendo
+      iniciarGiro(letra);                                 // a animação é feita por atualizarAnimacao()
+      return true;
+    }
+
+    // Gira uma face NA HORA, sem animação (útil para testes).
     // Ignorado se já houver um giro em andamento ou se a face ainda não foi liberada.
     function girarFaceInstantaneo(letra) {
       if (giroAtual !== null || !FACES_LIBERADAS.includes(letra)) return;
       iniciarGiro(letra);   // anexa os cubinhos ao grupo temporário
       finalizarGiro();      // aplica os 90° de uma vez e reancora
     }
+
+    // ----------------------------------------------------------------
+    // 3.4  GRUPO TEMPORÁRIO: ANEXAR, GIRAR E REANCORAR
+    // ----------------------------------------------------------------
 
     // Começa um giro: cria o grupo temporário e coloca nele os 9 cubinhos da face.
     function iniciarGiro(letra) {
@@ -231,7 +247,15 @@
       // lado positivo (U, F, R) o horário é negativo; nas do lado negativo (D, B, L) é positivo.
       const anguloAlvo = -def.camada * QUARTO_DE_VOLTA;
 
-      giroAtual = { face: letra, eixo: def.eixo, anguloAlvo: anguloAlvo, grupo: grupo, pecas: pecas };
+      giroAtual = {
+        face: letra,
+        eixo: def.eixo,                            // eixo em torno do qual o grupo gira
+        anguloAlvo: anguloAlvo,                    // ângulo final (+90° ou -90°)
+        duracao: DURACAO_NORMAL,                   // quanto tempo o giro deve durar (ms)
+        inicio: performance.now(),                 // instante em que o giro começou (ms)
+        grupo: grupo,
+        pecas: pecas
+      };
     }
 
     // Termina o giro: crava o ângulo final, devolve os cubinhos ao globalGroup
@@ -239,7 +263,7 @@
     function finalizarGiro() {
       const g = giroAtual;
 
-      g.grupo.rotation[g.eixo] = g.anguloAlvo;     // aplica o ângulo exato (±90°) ao grupo
+      g.grupo.rotation[g.eixo] = g.anguloAlvo;     // ângulo exato, sem sobra da interpolação
       g.grupo.updateMatrixWorld(true);             // garante que a matriz do grupo está atualizada
 
       g.pecas.forEach(c => {
@@ -278,7 +302,33 @@
     }
 
     // ----------------------------------------------------------------
-    // 3.4  TECLAS DE TESTE (TEMPORÁRIO)
+    // 3.5  ANIMAÇÃO SUAVE (chamada a cada frame pelo loop da SEÇÃO 1)
+    // ----------------------------------------------------------------
+
+    // Easing "ease-in-out cúbico": começa devagar, acelera no meio e desacelera no fim.
+    // Recebe t entre 0 e 1 (fração do tempo) e devolve a fração do ângulo (0 a 1).
+    function suavizar(t) {
+      return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function atualizarAnimacao() {
+      if (giroAtual === null) return;   // nenhum giro em andamento: nada a fazer neste frame
+
+      // Fração do tempo já decorrida (0 → 1), baseada no relógio real
+      // (assim a velocidade não depende dos FPS do computador).
+      const t = Math.min((performance.now() - giroAtual.inicio) / giroAtual.duracao, 1);
+
+      // Aplica ao grupo temporário o ângulo interpolado e suavizado.
+      giroAtual.grupo.rotation[giroAtual.eixo] = giroAtual.anguloAlvo * suavizar(t);
+
+      // Chegou ao fim? Crava os 90°, reancora as peças e libera um novo giro.
+      if (t >= 1) finalizarGiro();
+    }
+
+    // ----------------------------------------------------------------
+    // 3.6  TECLAS DE TESTE (TEMPORÁRIO)
     // ----------------------------------------------------------------
     // Só para testar a mecânica enquanto a Seção 4 não existe.
     // [Lorenna] quando você ligar os seus controles, troque para false
@@ -289,15 +339,9 @@
       document.addEventListener('keydown', (e) => {
         const letra = e.key.toUpperCase();                           // 'u' e 'U' viram 'U'
         if (letra.length === 1 && FACES_LIBERADAS.includes(letra)) { // é uma face já liberada?
-          girarFaceInstantaneo(letra);
+          girarFace(letra);
         }
       });
-    }
-
-    // Chamada a cada frame pelo loop da SEÇÃO 1.
-    // Por enquanto vazia; será preenchida no commit 5 (animação suave).
-    function atualizarAnimacao() {
-      // [João] avançar a rotação em andamento
     }
 
     // ################################################################
