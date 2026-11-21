@@ -449,7 +449,96 @@
     }
 
     // ----------------------------------------------------------------
-    // 3.6  TECLAS DE TESTE (TEMPORÁRIO)
+    // 3.6  VALIDAÇÃO DOS MOVIMENTOS (rode validarMovimentos() no console)
+    // ----------------------------------------------------------------
+
+    // "Fotografia" do cubo: posição lógica + matriz de cada cubinho, em texto.
+    // Duas fotografias iguais = cubo exatamente no mesmo estado.
+    function fotografarCubo() {
+      return cubinhos.map(c => {
+        c.mesh.updateMatrix(); // garante que a matriz local reflete posição/rotação atuais
+        const elementos = c.mesh.matrix.elements.map(v => Math.round(v * 1000) / 1000);
+        return [c.x, c.y, c.z, ...elementos].join(',');
+      }).join('|');
+    }
+
+    // Roda todos os testes e mostra o resultado no console.
+    // Deve ser executada com o cubo resolvido e sem animação em andamento.
+    function validarMovimentos() {
+      if (animacaoOcupada()) {
+        console.warn('Aguarde a animação terminar para validar.');
+        return;
+      }
+
+      const original = fotografarCubo();
+      let tudoOk = true;
+
+      // Relata o resultado de um teste.
+      const conferir = (descricao, ok) => {
+        console.log((ok ? 'OK    ' : 'FALHOU') + ' - ' + descricao);
+        if (!ok) tudoOk = false;
+      };
+
+      // Testes 1 e 2: em cada face e em cada sentido.
+      for (const letra of Object.keys(FACES)) {
+        for (const inverso of [false, true]) {
+          const sentido = inverso ? 'anti-horário' : 'horário';
+
+          // 4 giros seguidos devem devolver o cubo ao estado original.
+          for (let i = 0; i < 4; i++) girarFaceInstantaneo(letra, inverso);
+          conferir(letra + ': 4 giros ' + sentido, fotografarCubo() === original);
+
+          // Um giro e o seu inverso devem se anular.
+          girarFaceInstantaneo(letra, inverso);
+          girarFaceInstantaneo(letra, !inverso);
+          conferir(letra + ': giro ' + sentido + ' + inverso', fotografarCubo() === original);
+        }
+      }
+
+      // Teste 3: sentido horário visto de fora do cubo, conforme a notação oficial.
+      // "de" é a posição de uma peça antes do giro; "para" é onde ela deve parar.
+      // Ex.: em U horário, a peça da frente vai para a esquerda.
+      const SENTIDOS = [
+        { face: 'U', de: [ 0,  1,  1], para: [-1,  1,  0] },
+        { face: 'D', de: [ 0, -1,  1], para: [ 1, -1,  0] },
+        { face: 'F', de: [ 0,  1,  1], para: [ 1,  0,  1] },
+        { face: 'B', de: [ 0,  1, -1], para: [-1,  0, -1] },
+        { face: 'R', de: [ 1,  0,  1], para: [ 1,  1,  0] },
+        { face: 'L', de: [-1,  0,  1], para: [-1, -1,  0] }
+      ];
+      for (const s of SENTIDOS) {
+        const peca = cubinhos.find(c => c.x === s.de[0] && c.y === s.de[1] && c.z === s.de[2]);
+        girarFaceInstantaneo(s.face);
+        conferir(s.face + ': sentido horário visto de fora',
+                 !!peca && peca.x === s.para[0] && peca.y === s.para[1] && peca.z === s.para[2]);
+        girarFaceInstantaneo(s.face, true); // desfaz o giro
+      }
+
+      // Teste 4: a sequência R U R' U' repetida 6 vezes volta ao original.
+      // Confere se as posições lógicas continuam corretas após movimentos misturados.
+      for (let i = 0; i < 6; i++) {
+        girarFaceInstantaneo('R');
+        girarFaceInstantaneo('U');
+        girarFaceInstantaneo('R', true);
+        girarFaceInstantaneo('U', true);
+      }
+      conferir("sequência R U R' U' x6", fotografarCubo() === original);
+
+      // Teste 5: posição lógica (c.x, c.y, c.z) coincide com a posição visual,
+      // e todos os cubinhos voltaram para dentro do globalGroup.
+      const coerente = cubinhos.every(c =>
+        c.mesh.parent === globalGroup &&
+        Math.abs(c.mesh.position.x - c.x * distancia) < 1e-6 &&
+        Math.abs(c.mesh.position.y - c.y * distancia) < 1e-6 &&
+        Math.abs(c.mesh.position.z - c.z * distancia) < 1e-6
+      );
+      conferir('posição lógica igual à visual e peças ancoradas', coerente);
+
+      console.log(tudoOk ? 'Todos os movimentos estão corretos.' : 'Há movimentos com problema!');
+    }
+
+    // ----------------------------------------------------------------
+    // 3.7  TECLAS DE TESTE (TEMPORÁRIO)
     // ----------------------------------------------------------------
     // Só para testar a mecânica enquanto a Seção 4 não existe.
     // [Lorenna] quando você ligar os seus controles, troque para false
