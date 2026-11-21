@@ -31,6 +31,22 @@
       text-align: center;
     }
 
+    #painel button {
+      background: #3a3a4d;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin: 3px;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #painel button:hover { background: #55556e; }
+    #botoes-faces, #acoes { margin-bottom: 6px; }
+    #info { font-size: 14px; }
+    #mensagem { margin-top: 4px; min-height: 18px; color: #7dffa0; }
+
   </style>
 </head>
 <body>
@@ -42,7 +58,21 @@
        ================================================================ -->
   <div id="painel">
     <!-- [Lorenna] botões das faces, embaralhar, reiniciar, contador, mensagens -->
+     <div id="botoes-faces">
+    <button data-face="U">U</button>
+    <button data-face="D">D</button>
+    <button data-face="F">F</button>
+    <button data-face="B">B</button>
+    <button data-face="L">L</button>
+    <button data-face="R">R</button>
+  </div>
 
+  <div id="acoes">
+    <button id="btn-embaralhar">Embaralhar</button>
+  </div>
+
+  <div id="info">Movimentos: <span id="contador">0</span></div>
+  <div id="mensagem"></div>
     <!-- [Bento] seletor de tema -->
   </div>
 
