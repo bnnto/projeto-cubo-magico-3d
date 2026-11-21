@@ -150,24 +150,53 @@
     const geoArestas = new THREE.EdgesGeometry(geoCubo); // só as 12 arestas do cubo
     const matArestas = new THREE.LineBasicMaterial({ color: 0x000000 }); // linha preta
 
-    const cores = {
-      direita:  0xff0000,
-      esquerda: 0xff8800,
-      cima:     0xffffff,
-      baixo:    0xffff00,
-      frente:   0x00aa00,
-      tras:     0x0044ff
+    // --- PALETAS DE TEMA ---
+    // Cada tema define a cor das 6 faces. As chaves seguem o nome do lado do cubo.
+    const TEMAS = {
+      classico: {
+        nome:     'Clássico',
+        direita:  0xff0000,  // vermelho
+        esquerda: 0xff8800,  // laranja
+        cima:     0xffffff,  // branco
+        baixo:    0xffff00,  // amarelo
+        frente:   0x00aa00,  // verde
+        tras:     0x0044ff   // azul
+      },
+      neon: {
+        nome:     'Escuro / Neon',
+        direita:  0xff0055,  // rosa-vermelho
+        esquerda: 0xff9100,  // laranja vivo
+        cima:     0xe8e8ff,  // branco azulado
+        baixo:    0xf2ff00,  // amarelo limão
+        frente:   0x00ff66,  // verde neon
+        tras:     0x00b3ff   // ciano
+      },
+      pastel: {
+        nome:     'Pastel',
+        direita:  0xff8fa3,  // rosa
+        esquerda: 0xffc08a,  // pêssego
+        cima:     0xffffff,  // branco
+        baixo:    0xfdf29a,  // amarelo claro
+        frente:   0xa8e6bf,  // verde menta
+        tras:     0x9cc5ff   // azul bebê
+      }
     };
 
+    let temaAtual = 'classico';   // tema ativo (o commit 8 vai trocar isso em tempo real)
+    const COR_INTERNA = 0x000000; // faces voltadas para dentro do cubo
+
+    // Cria os 6 materiais de um cubinho lendo as cores do tema ativo.
+    // Ordem do Three.js: +x, -x, +y, -y, +z, -z
     function listaMateriais(x, y, z){
+      const cores = TEMAS[temaAtual];
       return [
-        new THREE.MeshBasicMaterial({ color: x === 1 ? cores.direita : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: x === -1 ? cores.esquerda : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: y === 1 ? cores.cima : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: y === -1 ? cores.baixo : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: z === 1 ? cores.frente : 0x000000 }),
-        new THREE.MeshBasicMaterial({ color: z === -1 ? cores.tras : 0x000000 }),
-      ]
+        new THREE.MeshBasicMaterial({ color: x ===  1 ? cores.direita  : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: x === -1 ? cores.esquerda : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: y ===  1 ? cores.cima     : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: y === -1 ? cores.baixo    : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: z ===  1 ? cores.frente   : COR_INTERNA }),
+        new THREE.MeshBasicMaterial({ color: z === -1 ? cores.tras     : COR_INTERNA }),
+      ];
     }
 
     for (let x = -1; x <= 1; x++) {
