@@ -284,27 +284,42 @@
     // 3.2  CONSTANTES E ESTADO
     // ----------------------------------------------------------------
     const QUARTO_DE_VOLTA = Math.PI / 2; // 90° em radianos (um giro de face)
-    const DURACAO_NORMAL  = 400;         // duração de um giro, em milissegundos
+    const DURACAO_NORMAL  = 400;         // duração de um giro normal, em milissegundos
+    const DURACAO_RAPIDA  = 100;         // duração de um giro rápido (usado no embaralhar)
 
     let giroAtual = null; // dados do giro em andamento (null = nenhum)
-    const fila = [];      // letras das faces esperando a vez de girar, em ordem de chegada
+    const fila = [];      // movimentos esperando a vez: { face, inverso, rapido }
+
+    // [Lorenna] Gancho opcional: atribua uma função aqui para ser avisada
+    // sempre que um giro ANIMADO terminar. Ela recebe { face, inverso, rapido }.
+    // Exemplo: aoFinalizarGiro = (mov) => { contador++; verificarVitoria(); };
+    let aoFinalizarGiro = null;
 
     // ----------------------------------------------------------------
-    // 3.3  FUNÇÕES PARA PEDIR UM GIRO
+    // 3.3  FUNÇÕES PÚBLICAS (as que a Seção 4 chama)
     // ----------------------------------------------------------------
 
-    // Pede um giro ANIMADO de uma face, no sentido horário visto de fora do cubo.
-    // O pedido entra no fim da fila: se já houver um giro em andamento, ele espera
-    // a vez e é executado em seguida (nunca há dois giros ao mesmo tempo).
+    // Pede um giro ANIMADO de uma face. O pedido entra no fim da fila: se já houver
+    // um giro em andamento, ele espera a vez (nunca há dois giros ao mesmo tempo).
+    //   letra   → 'U', 'D', 'F', 'B', 'L' ou 'R'
+    //   inverso → false = sentido horário visto de fora do cubo (padrão)
+    //             true  = sentido anti-horário (é o e.shiftKey que a Seção 4 já passa)
+    //   opcoes  → { rapido: true } para uma animação mais veloz (embaralhar)
+    // Exemplos: girarFace('R')                       → R horário
+    //           girarFace('R', true)                 → R anti-horário
+    //           girarFace('U', false, { rapido: true }) → U horário, rápido
     // Devolve true se o pedido foi aceito.
-    function girarFace(letra) {
-      if (!FACES[letra]) return false;   // face inexistente
-      fila.push(letra);                 // entra no fim da fila; quem executa é atualizarAnimacao()
+    function girarFace(letra, inverso = false, opcoes = {}) {
+      if (!FACES[letra]) {                                   // letra inválida?
+        console.warn('Face inválida:', letra);
+        return false;
+      }
+      fila.push({ face: letra, inverso: !!inverso, rapido: !!opcoes.rapido }); // entra no fim da fila
       return true;
     }
 
     // Diz se existe giro em andamento OU movimentos esperando na fila.
-    // Útil para desabilitar botões e saber quando uma sequência terminou.
+    // Útil para desabilitar botões e saber quando o embaralhar terminou.
     function animacaoOcupada() {
       return giroAtual !== null || fila.length > 0;
     }
@@ -314,12 +329,12 @@
       fila.length = 0;
     }
 
-    // Gira uma face NA HORA, sem animação (útil para testes).
-    // Ignorado se houver animação em andamento ou se a face for inválida.
-    function girarFaceInstantaneo(letra) {
+    // Gira uma face NA HORA, sem animação (e sem avisar o gancho aoFinalizarGiro).
+    // Serve para testes e validações. Ignorado se houver animação em andamento.
+    function girarFaceInstantaneo(letra, inverso = false) {
       if (animacaoOcupada() || !FACES[letra]) return;
-      iniciarGiro(letra);   // anexa os cubinhos ao grupo temporário
-      finalizarGiro();      // aplica os 90° de uma vez e reancora
+      iniciarGiro({ face: letra, inverso: !!inverso, rapido: true });
+      finalizarGiro(true); // true = silencioso (não chama o gancho)
     }
 
     // ----------------------------------------------------------------
@@ -327,25 +342,29 @@
     // ----------------------------------------------------------------
 
     // Começa um giro: cria o grupo temporário e coloca nele os 9 cubinhos da face.
-    function iniciarGiro(letra) {
-      const def = FACES[letra];                    // definição da face (eixo e camada)
+    function iniciarGiro(mov) {
+      const def = FACES[mov.face];                 // definição da face (eixo e camada)
 
       const grupo = new THREE.Group();             // grupo temporário que vai girar
       globalGroup.add(grupo);                      // fica dentro do globalGroup (herda escala/rotação do cubo)
 
-      const pecas = pecasDaFace(letra);            // os 9 cubinhos da camada
+      const pecas = pecasDaFace(mov.face);         // os 9 cubinhos da camada
       pecas.forEach(c => grupo.attach(c.mesh));    // attach = troca o pai SEM mover o cubinho visualmente
 
       // Sentido horário visto de fora do cubo. No Three.js, ângulo positivo gira
       // no sentido anti-horário visto do lado POSITIVO do eixo. Logo, nas faces do
       // lado positivo (U, F, R) o horário é negativo; nas do lado negativo (D, B, L) é positivo.
-      const anguloAlvo = -def.camada * QUARTO_DE_VOLTA;
+      // Para o sentido inverso, basta trocar o sinal.
+      const sinalHorario = -def.camada;
+      const sinal = mov.inverso ? -sinalHorario : sinalHorario;
 
       giroAtual = {
-        face: letra,
+        face: mov.face,
+        inverso: mov.inverso,
+        rapido: mov.rapido,
         eixo: def.eixo,                            // eixo em torno do qual o grupo gira
-        anguloAlvo: anguloAlvo,                    // ângulo final (+90° ou -90°)
-        duracao: DURACAO_NORMAL,                   // quanto tempo o giro deve durar (ms)
+        anguloAlvo: sinal * QUARTO_DE_VOLTA,       // ângulo final (+90° ou -90°)
+        duracao: mov.rapido ? DURACAO_RAPIDA : DURACAO_NORMAL, // giro rápido dura menos
         inicio: performance.now(),                 // instante em que o giro começou (ms)
         grupo: grupo,
         pecas: pecas
@@ -354,7 +373,7 @@
 
     // Termina o giro: crava o ângulo final, devolve os cubinhos ao globalGroup
     // (reancorar), limpa erros numéricos e atualiza as posições lógicas.
-    function finalizarGiro() {
+    function finalizarGiro(silencioso = false) {
       const g = giroAtual;
 
       g.grupo.rotation[g.eixo] = g.anguloAlvo;     // ângulo exato, sem sobra da interpolação
@@ -367,6 +386,10 @@
 
       globalGroup.remove(g.grupo);                 // o grupo temporário não é mais necessário
       giroAtual = null;                            // libera para o próximo giro
+
+      if (!silencioso && aoFinalizarGiro) {        // avisa a Seção 4, se ela pediu
+        aoFinalizarGiro({ face: g.face, inverso: g.inverso, rapido: g.rapido });
+      }
     }
 
     // Limpa a imprecisão numérica de um cubinho e atualiza sua posição lógica.
@@ -436,8 +459,8 @@
     if (ATIVAR_TECLAS_DE_TESTE) {
       document.addEventListener('keydown', (e) => {
         const letra = e.key.toUpperCase();                           // 'u' e 'U' viram 'U'
-        if (letra.length === 1 && FACES[letra]) {                          // é uma face válida?
-          girarFace(letra);
+        if (letra.length === 1 && FACES[letra]) {                    // é uma face válida?
+          girarFace(letra, e.shiftKey);                              // Shift = anti-horário
         }
       });
     }
