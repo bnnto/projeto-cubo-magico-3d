@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cubo Mágico 3D</title>
 
   <!--============================================================
@@ -14,19 +15,27 @@
     /* ---------- (Bento) ---------- */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a24; overflow: hidden; }
-    canvas { display: block; }
+    canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    /* ---------- Seletor de tema ---------- */
+    /* Os botões herdam o estilo de "#painel button", então o visual fica igual. */
+    #seletor-tema { margin-top: 6px; font-size: 13px; color: #aaa; }
+    #seletor-tema button.ativo { background: #6a5acd; color: #fff; } /* tema selecionado */
 
     /* ---------- (Lorenna) ---------- */
     #painel {
       position: absolute;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      z-index: 10;
+      top: 50%;
+      left: 16px;
+      transform: translateY(-50%);   /* centraliza na vertical (antes era translateX) */
+      width: 300px;                  /* largura fixa: painel estreito e em coluna */
+      max-height: 96vh;
+      overflow-y: auto;              /* se a tela for baixa, o painel rola em vez de cortar */
       color: #fff;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Comic Sans', sans-serif;
       font-size: 15px;
       background: rgba(0, 0, 0, 0.6);
-      padding: 8px 20px;
+      padding: 12px 14px;
       border-radius: 8px;
       text-align: center;
     }
@@ -57,6 +66,26 @@
     }
     #mensagem.vitoria { font-weight: bold; animation: cores-vitoria 1.5s linear infinite; }
 
+    /* ---------- Responsividade ---------- */
+    #painel { user-select: none; }
+    #seletor-tema { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; }
+
+    @media (max-width: 600px) {
+      #painel {
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        max-width: 96vw;
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+      #painel button { padding: 4px 8px; font-size: 12px; margin: 2px; }
+      #info { font-size: 12px; }
+      #atalhos { display: none; }
+      #mensagem { min-height: 0; }
+    }
+
   </style>
 </head>
 <body>
@@ -67,25 +96,25 @@
        (O seletor de tema de Bento entra aqui dentro, na div indicada)
        ================================================================ -->
   <div id="painel">
-    <!-- [Lorenna] botões das faces, embaralhar, reiniciar, contador, mensagens -->
-     <div id="botoes-faces">
-    <button data-face="U">U</button>
-    <button data-face="D">D</button>
-    <button data-face="F">F</button>
-    <button data-face="B">B</button>
-    <button data-face="L">L</button>
-    <button data-face="R">R</button>
-  </div>
+    <div id="botoes-faces">
+      <button data-face="U" title="Cima">C</button>
+      <button data-face="D" title="Baixo">B</button>
+      <button data-face="F" title="Frente">F</button>
+      <button data-face="B" title="Atrás">A</button>
+      <button data-face="L" title="Esquerda">E</button>
+      <button data-face="R" title="Direita">D</button>
+    </div>
 
-  <div id="acoes">
-    <button id="btn-embaralhar">Embaralhar</button>
-    <button id="btn-reiniciar">Reiniciar</button>
-  </div>
+    <div id="acoes">
+      <button id="btn-embaralhar">Embaralhar</button>
+      <button id="btn-reiniciar">Reiniciar</button>
+    </div>
 
-  <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
-  <div id="mensagem"></div>
-  <div id="atalhos">Teclas: U D F B L R &nbsp;|&nbsp; Shift = sentido inverso</div>
+    <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
+    <div id="mensagem"></div>
+    <div id="atalhos">Teclas: C B F A E D &nbsp;|&nbsp; Segurar Shift = sentido inverso</div>
     <!-- [Bento] seletor de tema -->
+    <div id="seletor-tema"></div>
   </div>
 
   <!-- Biblioteca Three.js -->
@@ -127,7 +156,7 @@
     
     // --- PILAR 3: RENDERER ---
     const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
-    renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // nítido em telas retina, sem pesar demais
     renderer.setClearColor(0x1a1a24);                               // fundo azul escuro
     document.body.appendChild(renderer.domElement);                 // insere o canvas gerado na página
 
@@ -146,13 +175,28 @@
     controls.enablePan = false;     // desativa arrastar lateral (botão direito) para o cubo não sair do centro
     controls.update();              // aplica a configuração inicial
 
-    // --- REDIMENSIONAMENTO DA JANELA ---
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;  // corrige aspecto da câmera
-      camera.updateProjectionMatrix();                         // aplica o novo aspecto
-      renderer.setSize(window.innerWidth, window.innerHeight); // redimensiona o canvas
-    });
+    // --- ENQUADRAMENTO RESPONSIVO ---
+    // Em telas verticais (aspecto < 1) aumenta o FOV vertical para o cubo
+    // continuar cabendo na largura, mantendo o FOV horizontal de uma tela larga.
+    const FOV_BASE = 45;
+    function ajustarEnquadramento() {
+      const aspecto = window.innerWidth / window.innerHeight;
+      camera.aspect = aspecto;
+      camera.fov = FOV_BASE;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
 
+      // Em tela vertical, afasta a câmera para o cubo caber na largura.
+      // Mantém a direção atual da câmera (não mexe em quem já orbitou).
+      const distIdeal = aspecto < 1 ? 10 / aspecto : 10;
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      camera.position.copy(controls.target).addScaledVector(dir, distIdeal);
+    }
+
+    // --- REDIMENSIONAMENTO DA JANELA ---
+    window.addEventListener('resize', ajustarEnquadramento);
+    ajustarEnquadramento();
+    
     // --- ESCALA GLOBAL (Page Up / Page Down) ---
     document.addEventListener('keydown', (e) => {
       if (e.key === 'PageUp')   globalGroup.scale.multiplyScalar(1.1);  // aumenta o cubo
@@ -205,7 +249,7 @@
         tras:     0x0044ff   // azul
       },
       neon: {
-        nome:     'Escuro / Neon',
+        nome:     'Neon',
         direita:  0xff0055,  // rosa-vermelho
         esquerda: 0xff9100,  // laranja vivo
         cima:     0xe8e8ff,  // branco azulado
@@ -221,6 +265,24 @@
         baixo:    0xfdf29a,  // amarelo claro
         frente:   0xa8e6bf,  // verde menta
         tras:     0x9cc5ff   // azul bebê
+      },
+      daltonico: {
+        nome:     'Daltônico',
+        direita:  0xd55e00,  // vermelhão
+        esquerda: 0xcc79a7,  // rosa-arroxeado
+        cima:     0xffffff,  // branco
+        baixo:    0xf0e442,  // amarelo
+        frente:   0x009e73,  // verde-azulado
+        tras:     0x0072b2   // azul
+      },
+      retro: {
+        nome:     'Retrô',
+        direita:  0xc1403d,  // tijolo
+        esquerda: 0xe8833a,  // laranja queimado
+        cima:     0xf4ead5,  // creme
+        baixo:    0xe8c547,  // mostarda
+        frente:   0x4a8c5c,  // verde musgo
+        tras:     0x3b6ea5   // azul acinzentado
       }
     };
 
@@ -251,12 +313,86 @@
           cubo.position.x = x * distancia;
           cubo.position.y = y * distancia;
           cubo.position.z = z * distancia;
-          cubinhos.push({mesh: cubo, x, y, z});
+          cubinhos.push({mesh: cubo, x, y, z, origem: {x, y, z}}); // origem nunca muda: diz quais lados do cubinho são coloridos
           cubo.add(new THREE.LineSegments(geoArestas, matArestas)); // contorno como filho do cubinho
           globalGroup.add(cubo);
         }       
       }
     }
+
+    // --- TROCA DE TEMA EM TEMPO REAL ---
+    // Ordem dos materiais no Three.js: +x, -x, +y, -y, +z, -z
+    const CHAVES_FACE = ['direita', 'esquerda', 'cima', 'baixo', 'frente', 'tras'];
+
+    // Aplica um tema ao cubo que já existe: só troca a cor dos materiais.
+    // Não recria cubinhos e não mexe em posição nem rotação, então o cubo
+    // continua exatamente no estado atual (embaralhado ou não).
+    // Devolve true se o tema existe e foi aplicado.
+    function aplicarTema(chave) {
+      const tema = TEMAS[chave];
+      if (!tema) {
+        console.warn('Tema inválido:', chave);
+        return false;
+      }
+
+      temaAtual = chave;
+
+      cubinhos.forEach(c => {
+        const o = c.origem;
+        // Quais dos 6 lados desse cubinho eram externos na montagem original?
+        const externos = [o.x === 1, o.x === -1, o.y === 1, o.y === -1, o.z === 1, o.z === -1];
+
+        for (let i = 0; i < 6; i++) {
+          const cor = externos[i] ? tema[CHAVES_FACE[i]] : COR_INTERNA;
+          c.mesh.material[i].color.setHex(cor);   // troca só a cor, o material continua o mesmo
+        }
+      });
+
+      return true;
+    }
+
+    // --- SELETOR DE TEMA NA INTERFACE ---
+    const CHAVE_STORAGE = 'cuboTema'; // nome usado para salvar no navegador
+    const elSeletorTema = document.getElementById('seletor-tema');
+
+    // Marca como "ativo" só o botão do tema atual.
+    function marcarBotaoAtivo() {
+      elSeletorTema.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('ativo', b.dataset.tema === temaAtual);
+      });
+    }
+
+    // Troca o tema e lembra a escolha para a próxima vez que a página abrir.
+    function escolherTema(chave) {
+      if (!aplicarTema(chave)) return;
+      marcarBotaoAtivo();
+      try {
+        localStorage.setItem(CHAVE_STORAGE, chave);
+      } catch (erro) {
+        // navegador bloqueou o armazenamento (aba anônima, etc.): o tema só não será lembrado
+      }
+    }
+
+    // Cria um botão para cada tema de TEMAS.
+    elSeletorTema.append('Tema: ');
+    Object.keys(TEMAS).forEach(chave => {
+      const botao = document.createElement('button');
+      botao.textContent = TEMAS[chave].nome;
+      botao.dataset.tema = chave;                           // data-tema diferente do data-face
+      botao.addEventListener('click', () => {
+        escolherTema(chave);
+        botao.blur();                                       // tira o foco para Espaço/Enter não repetirem o clique
+      });
+      elSeletorTema.appendChild(botao);
+    });
+
+    // Ao carregar a página, recupera o tema salvo (se existir e ainda for válido).
+    let temaSalvo = null;
+    try {
+      temaSalvo = localStorage.getItem(CHAVE_STORAGE);
+    } catch (erro) {}
+    if (temaSalvo && TEMAS[temaSalvo]) aplicarTema(temaSalvo);
+    marcarBotaoAtivo();
 
     // ################################################################
     // SEÇÃO 3 – ROTAÇÃO DAS FACES E ANIMAÇÃO         (João)
@@ -617,12 +753,22 @@
     }
 
     // --- TECLADO ---
-    // U, D, F, B, L, R giram a face. Com Shift, gira no sentido inverso.
+    // Teclas em português → letra interna da face (a Seção 3 usa a notação U D F B L R).
+    const TECLAS = {
+      C: 'U',  // Cima
+      B: 'D',  // Baixo
+      F: 'F',  // Frente
+      A: 'B',  // Atrás
+      E: 'L',  // Esquerda
+      D: 'R'   // Direita
+    };
+
+    // Com Shift, gira no sentido inverso.
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador (Ctrl+R etc.)
-      const letra = e.key.toUpperCase();
-      if (FACES[letra]) {
-        tentarGirar(letra, e.shiftKey);
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador
+      const face = TECLAS[e.key.toUpperCase()];
+      if (face) {
+        tentarGirar(face, e.shiftKey);
       }
     });
 
