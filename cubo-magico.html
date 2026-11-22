@@ -70,15 +70,13 @@
        (Lorenna)
        (O seletor de tema de Bento entra aqui dentro, na div indicada)
        ================================================================ -->
-  <div id="painel">
-    <!-- [Lorenna] botões das faces, embaralhar, reiniciar, contador, mensagens -->
-     <div id="botoes-faces">
-    <button data-face="U">U</button>
-    <button data-face="D">D</button>
-    <button data-face="F">F</button>
-    <button data-face="B">B</button>
-    <button data-face="L">L</button>
-    <button data-face="R">R</button>
+  <div id="botoes-faces">
+    <button data-face="U" title="Cima">C</button>
+    <button data-face="D" title="Baixo">B</button>
+    <button data-face="F" title="Frente">F</button>
+    <button data-face="B" title="Atrás">A</button>
+    <button data-face="L" title="Esquerda">E</button>
+    <button data-face="R" title="Direita">D</button>
   </div>
 
   <div id="acoes">
@@ -88,7 +86,7 @@
 
   <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
   <div id="mensagem"></div>
-  <div id="atalhos">Teclas: U D F B L R &nbsp;|&nbsp; Shift = sentido inverso</div>
+  <div id="atalhos">Teclas: C B F A E D &nbsp;|&nbsp; Segurar Shift = sentido inverso</div>
   <!-- [Bento] seletor de tema -->
   <div id="seletor-tema"></div>
   </div>
@@ -696,12 +694,22 @@
     }
 
     // --- TECLADO ---
-    // U, D, F, B, L, R giram a face. Com Shift, gira no sentido inverso.
+    // Teclas em português → letra interna da face (a Seção 3 usa a notação U D F B L R).
+    const TECLAS = {
+      C: 'U',  // Cima
+      B: 'D',  // Baixo
+      F: 'F',  // Frente
+      A: 'B',  // Atrás
+      E: 'L',  // Esquerda
+      D: 'R'   // Direita
+    };
+
+    // Com Shift, gira no sentido inverso.
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador (Ctrl+R etc.)
-      const letra = e.key.toUpperCase();
-      if (FACES[letra]) {
-        tentarGirar(letra, e.shiftKey);
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador
+      const face = TECLAS[e.key.toUpperCase()];
+      if (face) {
+        tentarGirar(face, e.shiftKey);
       }
     });
 
