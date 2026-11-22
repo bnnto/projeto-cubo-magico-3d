@@ -15,6 +15,10 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a24; overflow: hidden; }
     canvas { display: block; }
+    /* ---------- Seletor de tema ---------- */
+    /* Os botões herdam o estilo de "#painel button", então o visual fica igual. */
+    #seletor-tema { margin-top: 6px; font-size: 13px; color: #aaa; }
+    #seletor-tema button.ativo { background: #6a5acd; color: #fff; } /* tema selecionado */
 
     /* ---------- (Lorenna) ---------- */
     #painel {
@@ -85,7 +89,8 @@
   <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
   <div id="mensagem"></div>
   <div id="atalhos">Teclas: U D F B L R &nbsp;|&nbsp; Shift = sentido inverso</div>
-    <!-- [Bento] seletor de tema -->
+  <!-- [Bento] seletor de tema -->
+  <div id="seletor-tema"></div>
   </div>
 
   <!-- Biblioteca Three.js -->
@@ -205,7 +210,7 @@
         tras:     0x0044ff   // azul
       },
       neon: {
-        nome:     'Escuro / Neon',
+        nome:     'Neon',
         direita:  0xff0055,  // rosa-vermelho
         esquerda: 0xff9100,  // laranja vivo
         cima:     0xe8e8ff,  // branco azulado
@@ -288,6 +293,49 @@
 
       return true;
     }
+
+    // --- SELETOR DE TEMA NA INTERFACE ---
+    const CHAVE_STORAGE = 'cuboTema'; // nome usado para salvar no navegador
+    const elSeletorTema = document.getElementById('seletor-tema');
+
+    // Marca como "ativo" só o botão do tema atual.
+    function marcarBotaoAtivo() {
+      elSeletorTema.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('ativo', b.dataset.tema === temaAtual);
+      });
+    }
+
+    // Troca o tema e lembra a escolha para a próxima vez que a página abrir.
+    function escolherTema(chave) {
+      if (!aplicarTema(chave)) return;
+      marcarBotaoAtivo();
+      try {
+        localStorage.setItem(CHAVE_STORAGE, chave);
+      } catch (erro) {
+        // navegador bloqueou o armazenamento (aba anônima, etc.): o tema só não será lembrado
+      }
+    }
+
+    // Cria um botão para cada tema de TEMAS.
+    elSeletorTema.append('Tema: ');
+    Object.keys(TEMAS).forEach(chave => {
+      const botao = document.createElement('button');
+      botao.textContent = TEMAS[chave].nome;
+      botao.dataset.tema = chave;                           // data-tema diferente do data-face
+      botao.addEventListener('click', () => {
+        escolherTema(chave);
+        botao.blur();                                       // tira o foco para Espaço/Enter não repetirem o clique
+      });
+      elSeletorTema.appendChild(botao);
+    });
+
+    // Ao carregar a página, recupera o tema salvo (se existir e ainda for válido).
+    let temaSalvo = null;
+    try {
+      temaSalvo = localStorage.getItem(CHAVE_STORAGE);
+    } catch (erro) {}
+    if (temaSalvo && TEMAS[temaSalvo]) aplicarTema(temaSalvo);
+    marcarBotaoAtivo();
 
     // ################################################################
     // SEÇÃO 3 – ROTAÇÃO DAS FACES E ANIMAÇÃO         (João)
