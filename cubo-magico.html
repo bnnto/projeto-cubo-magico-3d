@@ -658,6 +658,45 @@
 
     btnEmbaralhar.addEventListener('click', embaralhar);
 
+    // --- VERIFICA SE O CUBO ESTÁ RESOLVIDO (commit 6) ---
+
+    // Direção para onde aponta cada material do cubinho, antes de ele ser girado.
+    // Mesma ordem do Three.js: +x, -x, +y, -y, +z, -z
+    const NORMAIS_LOCAIS = [
+      new THREE.Vector3( 1,  0,  0),
+      new THREE.Vector3(-1,  0,  0),
+      new THREE.Vector3( 0,  1,  0),
+      new THREE.Vector3( 0, -1,  0),
+      new THREE.Vector3( 0,  0,  1),
+      new THREE.Vector3( 0,  0, -1)
+    ];
+
+    // Descobre qual cor do cubinho está voltada para a direção pedida (ex.: pra cima).
+    // Leva em conta a rotação atual do cubinho (a orientação dele).
+    function corVoltadaPara(c, direcao) {
+      for (let i = 0; i < 6; i++) {
+        const normal = NORMAIS_LOCAIS[i].clone().applyQuaternion(c.mesh.quaternion); // para onde esse lado aponta agora
+        if (normal.dot(direcao) > 0.9) {
+          return c.mesh.material[i].color.getHex();
+        }
+      }
+      return null;
+    }
+
+    // Devolve true se cada uma das 6 faces tem uma cor só.
+    // Só deve ser chamada com o cubo parado (sem giro em andamento).
+    function cuboResolvido() {
+      return Object.keys(FACES).every(letra => {
+        const def = FACES[letra];
+
+        const direcao = new THREE.Vector3(0, 0, 0);   // direção externa da face
+        direcao[def.eixo] = def.camada;               // ex.: U → (0, 1, 0)
+
+        const cores = pecasDaFace(letra).map(c => corVoltadaPara(c, direcao));
+        return cores.every(cor => cor === cores[0]);  // as 9 cores precisam ser iguais
+      });
+    }
+
     animate(); // dispara o loop pela primeira vez
   </script>
 </body>
