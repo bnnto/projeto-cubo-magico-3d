@@ -48,6 +48,15 @@
     #mensagem { margin-top: 4px; min-height: 18px; color: #7dffa0; }
     #atalhos { margin-top: 6px; font-size: 12px; color: #aaa; }
 
+    @keyframes cores-vitoria {
+      0%   { color: #7dffa0; }
+      25%  { color: #ffe66d; }
+      50%  { color: #ff7ad9; }
+      75%  { color: #6ad1ff; }
+      100% { color: #7dffa0; }
+    }
+    #mensagem.vitoria { font-weight: bold; animation: cores-vitoria 1.5s linear infinite; }
+
   </style>
 </head>
 <body>
@@ -70,9 +79,10 @@
 
   <div id="acoes">
     <button id="btn-embaralhar">Embaralhar</button>
+    <button id="btn-reiniciar">Reiniciar</button>
   </div>
 
-  <div id="info">Movimentos: <span id="contador">0</span></div>
+  <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
   <div id="mensagem"></div>
   <div id="atalhos">Teclas: U D F B L R &nbsp;|&nbsp; Shift = sentido inverso</div>
     <!-- [Bento] seletor de tema -->
@@ -574,16 +584,25 @@
     // Só conta o movimento se o giro realmente começou.
     function tentarGirar(letra, inverso) {
       if (embaralhando) return;
+      if (jogoEmAndamento) iniciarCronometro();
       girarFace(letra, inverso);
     }
 
     // Conta o movimento só quando o giro termina, e ignora os giros rápidos (embaralhar).
     aoFinalizarGiro = (mov) => {
-      if (!mov.rapido) registrarMovimento();
+      // Giro do jogador: conta e, se o cubo ficou resolvido, é vitória.
+      if (!mov.rapido) {
+        registrarMovimento();
+        if (jogoEmAndamento && !animacaoOcupada() && cuboResolvido()) {
+          jogoEmAndamento = false;   // evita repetir a mensagem
+          mostrarVitoria();
+        }
+      }
 
-      // Último giro do embaralhar terminou: libera os controles.
+      // Último giro do embaralhar terminou: libera os controles e começa o jogo.
       if (embaralhando && !animacaoOcupada()) {
         embaralhando = false;
+        jogoEmAndamento = true;
         bloquearControles(false);
       }
     };
@@ -638,6 +657,7 @@
         botoesFaces[i].disabled = bloquear;
       }
       btnEmbaralhar.disabled = bloquear;
+      btnReiniciar.disabled = bloquear;
     }
 
     // Enfileira a sequência sorteada com giros rápidos.
@@ -646,6 +666,8 @@
       if (embaralhando || animacaoOcupada()) return;  // já está embaralhando ou há giro em andamento
 
       embaralhando = true;
+      jogoEmAndamento = false;       // ainda não é um jogo valendo
+      limparResultado();   // apaga a mensagem de vitória anterior
       movimentos = 0;                // começa o jogo com o contador zerado
       atualizarContador();
       bloquearControles(true);
@@ -657,6 +679,125 @@
     }
 
     btnEmbaralhar.addEventListener('click', embaralhar);
+
+    // --- VERIFICA SE O CUBO ESTÁ RESOLVIDO ---
+
+    // Direção para onde aponta cada material do cubinho, antes de ele ser girado.
+    // Mesma ordem do Three.js: +x, -x, +y, -y, +z, -z
+    const NORMAIS_LOCAIS = [
+      new THREE.Vector3( 1,  0,  0),
+      new THREE.Vector3(-1,  0,  0),
+      new THREE.Vector3( 0,  1,  0),
+      new THREE.Vector3( 0, -1,  0),
+      new THREE.Vector3( 0,  0,  1),
+      new THREE.Vector3( 0,  0, -1)
+    ];
+
+    // Descobre qual cor do cubinho está voltada para a direção pedida (ex.: pra cima).
+    // Leva em conta a rotação atual do cubinho (a orientação dele).
+    function corVoltadaPara(c, direcao) {
+      for (let i = 0; i < 6; i++) {
+        const normal = NORMAIS_LOCAIS[i].clone().applyQuaternion(c.mesh.quaternion); // para onde esse lado aponta agora
+        if (normal.dot(direcao) > 0.9) {
+          return c.mesh.material[i].color.getHex();
+        }
+      }
+      return null;
+    }
+
+    // Devolve true se cada uma das 6 faces tem uma cor só.
+    // Só deve ser chamada com o cubo parado (sem giro em andamento).
+    function cuboResolvido() {
+      return Object.keys(FACES).every(letra => {
+        const def = FACES[letra];
+
+        const direcao = new THREE.Vector3(0, 0, 0);   // direção externa da face
+        direcao[def.eixo] = def.camada;               // ex.: U → (0, 1, 0)
+
+        const cores = pecasDaFace(letra).map(c => corVoltadaPara(c, direcao));
+        return cores.every(cor => cor === cores[0]);  // as 9 cores precisam ser iguais
+      });
+    }
+
+     // --- DETECÇÃO DE VITÓRIA ---
+    const elMensagem = document.getElementById('mensagem');
+    let jogoEmAndamento = false; // só vira true quando um embaralhar termina
+
+    function mostrarVitoria() {
+      pararCronometro();
+      const tempo = formatarTempo(inicioCronometro === null ? 0 : performance.now() - inicioCronometro);
+      elCronometro.textContent = tempo;
+
+      const palavra = movimentos === 1 ? 'movimento' : 'movimentos';
+      elMensagem.textContent = 'Parabéns! Você resolveu o cubo em ' + movimentos + ' ' + palavra + ' e ' + tempo + '!';
+      elMensagem.classList.add('vitoria');   // ativa a mudança de cor
+    }
+
+        // --- REINICIAR O CUBO ---
+    const btnReiniciar = document.getElementById('btn-reiniciar');
+
+    // Guarda onde cada cubinho está agora (o cubo começa resolvido).
+    const estadoInicial = cubinhos.map(c => ({ peca: c, x: c.x, y: c.y, z: c.z }));
+
+    function reiniciarCubo() {
+      if (embaralhando) return;                 // não reinicia no meio do embaralhar
+
+      limparFila();                             // descarta giros que ainda não começaram
+      if (giroAtual !== null) finalizarGiro(true); // termina o giro em andamento sem avisar o contador
+
+      // Devolve cada cubinho à posição e à orientação originais.
+      for (let i = 0; i < estadoInicial.length; i++) {
+        const e = estadoInicial[i];
+        e.peca.x = e.x;
+        e.peca.y = e.y;
+        e.peca.z = e.z;
+        e.peca.mesh.position.set(e.x * distancia, e.y * distancia, e.z * distancia);
+        e.peca.mesh.rotation.set(0, 0, 0);
+      }
+
+      movimentos = 0;                           // zera o contador
+      atualizarContador();
+      jogoEmAndamento = false;                  // sem jogo valendo
+      limparResultado();              // esconde a mensagem de vitória
+    }
+
+    btnReiniciar.addEventListener('click', reiniciarCubo);
+
+    // --- CRONÔMETRO ---
+    const elCronometro = document.getElementById('cronometro');
+    let inicioCronometro = null;  // instante do primeiro movimento
+    let idCronometro = null;      // id do setInterval (null = parado)
+
+    // Transforma milissegundos em "mm:ss".
+    function formatarTempo(ms) {
+      const total = Math.floor(ms / 1000);
+      const min = String(Math.floor(total / 60)).padStart(2, '0');
+      const seg = String(total % 60).padStart(2, '0');
+      return min + ':' + seg;
+    }
+
+    // Começa a contar. Se já estiver contando, não faz nada.
+    function iniciarCronometro() {
+      if (idCronometro !== null) return;
+      inicioCronometro = performance.now();
+      idCronometro = setInterval(() => {
+        elCronometro.textContent = formatarTempo(performance.now() - inicioCronometro);
+      }, 250);
+    }
+
+    function pararCronometro() {
+      clearInterval(idCronometro);
+      idCronometro = null;
+    }
+
+    // Zera o tempo e a mensagem de vitória (usado no embaralhar e no reiniciar).
+    function limparResultado() {
+      pararCronometro();
+      inicioCronometro = null;
+      elCronometro.textContent = '00:00';
+      elMensagem.textContent = '';
+      elMensagem.classList.remove('vitoria');
+    }
 
     animate(); // dispara o loop pela primeira vez
   </script>
