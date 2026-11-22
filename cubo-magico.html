@@ -558,12 +558,29 @@
     // SEÇÃO 4 – CONTROLES, JOGO E VITÓRIA            (Lorenna)
     // ################################################################
     // --- BOTÕES DAS FACES ---
+    // --- CONTADOR DE MOVIMENTOS 
+    let movimentos = 0;
+    const elContador = document.getElementById('contador');
+
+    function atualizarContador() {
+      elContador.textContent = movimentos;
+    }
+
+    function registrarMovimento() {
+      movimentos++;
+      atualizarContador();
+    }
+
+    // Só conta o movimento se o giro realmente começou.
+    function tentarGirar(letra, inverso) {
+      if (girarFace(letra, inverso)) registrarMovimento();
+    }
     // Cada botão tem data-face="U", "D", etc. Shift + clique = sentido inverso.
     const botoesFaces = document.querySelectorAll('#painel [data-face]');
     for (let i = 0; i < botoesFaces.length; i++) {
       botoesFaces[i].addEventListener('click', (e) => {
         const letra = botoesFaces[i].dataset.face;
-        girarFace(letra, e.shiftKey);
+       tentarGirar(letra, e.shiftKey);
       });
     }
 
@@ -573,7 +590,7 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return; // não atrapalha atalhos do navegador (Ctrl+R etc.)
       const letra = e.key.toUpperCase();
       if (FACES[letra]) {
-        girarFace(letra, e.shiftKey);
+        tentarGirar(letra, e.shiftKey);
       }
     });
 
