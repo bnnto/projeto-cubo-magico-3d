@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cubo Mágico 3D</title>
 
   <!--============================================================
@@ -14,7 +15,7 @@
     /* ---------- (Bento) ---------- */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #1a1a24; overflow: hidden; }
-    canvas { display: block; }
+    canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
     /* ---------- Seletor de tema ---------- */
     /* Os botões herdam o estilo de "#painel button", então o visual fica igual. */
     #seletor-tema { margin-top: 6px; font-size: 13px; color: #aaa; }
@@ -23,14 +24,18 @@
     /* ---------- (Lorenna) ---------- */
     #painel {
       position: absolute;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      z-index: 10;
+      top: 50%;
+      left: 16px;
+      transform: translateY(-50%);   /* centraliza na vertical (antes era translateX) */
+      width: 300px;                  /* largura fixa: painel estreito e em coluna */
+      max-height: 96vh;
+      overflow-y: auto;              /* se a tela for baixa, o painel rola em vez de cortar */
       color: #fff;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Comic Sans', sans-serif;
       font-size: 15px;
       background: rgba(0, 0, 0, 0.6);
-      padding: 8px 20px;
+      padding: 12px 14px;
       border-radius: 8px;
       text-align: center;
     }
@@ -61,6 +66,26 @@
     }
     #mensagem.vitoria { font-weight: bold; animation: cores-vitoria 1.5s linear infinite; }
 
+    /* ---------- Responsividade ---------- */
+    #painel { user-select: none; }
+    #seletor-tema { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; }
+
+    @media (max-width: 600px) {
+      #painel {
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        max-width: 96vw;
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+      #painel button { padding: 4px 8px; font-size: 12px; margin: 2px; }
+      #info { font-size: 12px; }
+      #atalhos { display: none; }
+      #mensagem { min-height: 0; }
+    }
+
   </style>
 </head>
 <body>
@@ -70,25 +95,26 @@
        (Lorenna)
        (O seletor de tema de Bento entra aqui dentro, na div indicada)
        ================================================================ -->
-  <div id="botoes-faces">
-    <button data-face="U" title="Cima">C</button>
-    <button data-face="D" title="Baixo">B</button>
-    <button data-face="F" title="Frente">F</button>
-    <button data-face="B" title="Atrás">A</button>
-    <button data-face="L" title="Esquerda">E</button>
-    <button data-face="R" title="Direita">D</button>
-  </div>
+  <div id="painel">
+    <div id="botoes-faces">
+      <button data-face="U" title="Cima">C</button>
+      <button data-face="D" title="Baixo">B</button>
+      <button data-face="F" title="Frente">F</button>
+      <button data-face="B" title="Atrás">A</button>
+      <button data-face="L" title="Esquerda">E</button>
+      <button data-face="R" title="Direita">D</button>
+    </div>
 
-  <div id="acoes">
-    <button id="btn-embaralhar">Embaralhar</button>
-    <button id="btn-reiniciar">Reiniciar</button>
-  </div>
+    <div id="acoes">
+      <button id="btn-embaralhar">Embaralhar</button>
+      <button id="btn-reiniciar">Reiniciar</button>
+    </div>
 
-  <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
-  <div id="mensagem"></div>
-  <div id="atalhos">Teclas: C B F A E D &nbsp;|&nbsp; Segurar Shift = sentido inverso</div>
-  <!-- [Bento] seletor de tema -->
-  <div id="seletor-tema"></div>
+    <div id="info">Movimentos: <span id="contador">0</span> &nbsp;|&nbsp; Tempo: <span id="cronometro">00:00</span></div>
+    <div id="mensagem"></div>
+    <div id="atalhos">Teclas: C B F A E D &nbsp;|&nbsp; Segurar Shift = sentido inverso</div>
+    <!-- [Bento] seletor de tema -->
+    <div id="seletor-tema"></div>
   </div>
 
   <!-- Biblioteca Three.js -->
@@ -130,7 +156,7 @@
     
     // --- PILAR 3: RENDERER ---
     const renderer = new THREE.WebGLRenderer({ antialias: true }); // renderizador WebGL com suavização de bordas
-    renderer.setSize(window.innerWidth, window.innerHeight);        // canvas ocupa toda a janela
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // nítido em telas retina, sem pesar demais
     renderer.setClearColor(0x1a1a24);                               // fundo azul escuro
     document.body.appendChild(renderer.domElement);                 // insere o canvas gerado na página
 
@@ -149,13 +175,28 @@
     controls.enablePan = false;     // desativa arrastar lateral (botão direito) para o cubo não sair do centro
     controls.update();              // aplica a configuração inicial
 
-    // --- REDIMENSIONAMENTO DA JANELA ---
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;  // corrige aspecto da câmera
-      camera.updateProjectionMatrix();                         // aplica o novo aspecto
-      renderer.setSize(window.innerWidth, window.innerHeight); // redimensiona o canvas
-    });
+    // --- ENQUADRAMENTO RESPONSIVO ---
+    // Em telas verticais (aspecto < 1) aumenta o FOV vertical para o cubo
+    // continuar cabendo na largura, mantendo o FOV horizontal de uma tela larga.
+    const FOV_BASE = 45;
+    function ajustarEnquadramento() {
+      const aspecto = window.innerWidth / window.innerHeight;
+      camera.aspect = aspecto;
+      camera.fov = FOV_BASE;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
 
+      // Em tela vertical, afasta a câmera para o cubo caber na largura.
+      // Mantém a direção atual da câmera (não mexe em quem já orbitou).
+      const distIdeal = aspecto < 1 ? 10 / aspecto : 10;
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      camera.position.copy(controls.target).addScaledVector(dir, distIdeal);
+    }
+
+    // --- REDIMENSIONAMENTO DA JANELA ---
+    window.addEventListener('resize', ajustarEnquadramento);
+    ajustarEnquadramento();
+    
     // --- ESCALA GLOBAL (Page Up / Page Down) ---
     document.addEventListener('keydown', (e) => {
       if (e.key === 'PageUp')   globalGroup.scale.multiplyScalar(1.1);  // aumenta o cubo
