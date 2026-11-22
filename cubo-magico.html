@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Cubo Mágico 3D</title>
+<meta charset="UTF-8">
+<title>Cubo Mágico 3D</title>
 
   <!--============================================================
        CSS
@@ -292,7 +292,7 @@
 
     // [Lorenna] Gancho opcional: atribua uma função aqui para ser avisada
     // sempre que um giro ANIMADO terminar. Ela recebe { face, inverso, rapido }.
-    // Exemplo: aoFinalizarGiro = (mov) => { contador++; verificarVitoria(); };
+    // Exemplo: 2izarGiro = (mov) => { contador++; verificarVitoria(); };
     let aoFinalizarGiro = null;
 
     // ----------------------------------------------------------------
@@ -573,8 +573,21 @@
 
     // Só conta o movimento se o giro realmente começou.
     function tentarGirar(letra, inverso) {
-      if (girarFace(letra, inverso)) registrarMovimento();
+      if (embaralhando) return;
+      girarFace(letra, inverso);
     }
+
+    // Conta o movimento só quando o giro termina, e ignora os giros rápidos (embaralhar).
+    aoFinalizarGiro = (mov) => {
+      if (!mov.rapido) registrarMovimento();
+
+      // Último giro do embaralhar terminou: libera os controles.
+      if (embaralhando && !animacaoOcupada()) {
+        embaralhando = false;
+        bloquearControles(false);
+      }
+    };
+    
     // Cada botão tem data-face="U", "D", etc. Shift + clique = sentido inverso.
     const botoesFaces = document.querySelectorAll('#painel [data-face]');
     for (let i = 0; i < botoesFaces.length; i++) {
@@ -614,6 +627,36 @@
 
       return sequencia;
     }
+
+    // --- BOTÃO EMBARALHAR ---
+    let embaralhando = false;
+    const btnEmbaralhar = document.getElementById('btn-embaralhar');
+
+    // Liga/desliga os botões das faces e o de embaralhar.
+    function bloquearControles(bloquear) {
+      for (let i = 0; i < botoesFaces.length; i++) {
+        botoesFaces[i].disabled = bloquear;
+      }
+      btnEmbaralhar.disabled = bloquear;
+    }
+
+    // Enfileira a sequência sorteada com giros rápidos.
+    // Esses giros são "rapido", então o aoFinalizarGiro não os conta.
+    function embaralhar() {
+      if (embaralhando || animacaoOcupada()) return;  // já está embaralhando ou há giro em andamento
+
+      embaralhando = true;
+      movimentos = 0;                // começa o jogo com o contador zerado
+      atualizarContador();
+      bloquearControles(true);
+
+      const sequencia = gerarSequenciaEmbaralhar();
+      for (let i = 0; i < sequencia.length; i++) {
+        girarFace(sequencia[i].face, sequencia[i].inverso, { rapido: true });
+      }
+    }
+
+    btnEmbaralhar.addEventListener('click', embaralhar);
 
     animate(); // dispara o loop pela primeira vez
   </script>
