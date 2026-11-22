@@ -594,6 +594,27 @@
       }
     });
 
+        // --- EMBARALHAR: GERA A SEQUÊNCIA ALEATÓRIA ---
+    const QTD_EMBARALHAR = 20; // quantos movimentos tem o embaralhamento
+
+    // Sorteia uma lista de movimentos { face, inverso }.
+    // Nunca repete a mesma face duas vezes seguidas (senão um giro desfaz o outro).
+    function gerarSequenciaEmbaralhar(quantidade = QTD_EMBARALHAR) {
+      const letras = Object.keys(FACES);   // ['U', 'D', 'F', 'B', 'R', 'L']
+      const sequencia = [];
+      let ultima = null;                   // face do movimento anterior
+
+      for (let i = 0; i < quantidade; i++) {
+        const opcoes = letras.filter(l => l !== ultima);                  // tira a face anterior
+        const letra = opcoes[Math.floor(Math.random() * opcoes.length)];  // sorteia uma das restantes
+        const inverso = Math.random() < 0.5;                              // 50% de chance de ser anti-horário
+        sequencia.push({ face: letra, inverso: inverso });
+        ultima = letra;
+      }
+
+      return sequencia;
+    }
+
     animate(); // dispara o loop pela primeira vez
   </script>
 </body>
