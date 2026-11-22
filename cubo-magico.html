@@ -70,6 +70,7 @@
 
   <div id="acoes">
     <button id="btn-embaralhar">Embaralhar</button>
+    <button id="btn-reiniciar">Reiniciar</button>
   </div>
 
   <div id="info">Movimentos: <span id="contador">0</span></div>
@@ -646,6 +647,7 @@
         botoesFaces[i].disabled = bloquear;
       }
       btnEmbaralhar.disabled = bloquear;
+      btnReiniciar.disabled = bloquear;
     }
 
     // Enfileira a sequência sorteada com giros rápidos.
@@ -715,6 +717,36 @@
       const palavra = movimentos === 1 ? 'movimento' : 'movimentos';
       elMensagem.textContent = 'Parabéns! Você resolveu o cubo em ' + movimentos + ' ' + palavra + '!';
     }
+
+        // --- REINICIAR O CUBO ---
+    const btnReiniciar = document.getElementById('btn-reiniciar');
+
+    // Guarda onde cada cubinho está agora (o cubo começa resolvido).
+    const estadoInicial = cubinhos.map(c => ({ peca: c, x: c.x, y: c.y, z: c.z }));
+
+    function reiniciarCubo() {
+      if (embaralhando) return;                 // não reinicia no meio do embaralhar
+
+      limparFila();                             // descarta giros que ainda não começaram
+      if (giroAtual !== null) finalizarGiro(true); // termina o giro em andamento sem avisar o contador
+
+      // Devolve cada cubinho à posição e à orientação originais.
+      for (let i = 0; i < estadoInicial.length; i++) {
+        const e = estadoInicial[i];
+        e.peca.x = e.x;
+        e.peca.y = e.y;
+        e.peca.z = e.z;
+        e.peca.mesh.position.set(e.x * distancia, e.y * distancia, e.z * distancia);
+        e.peca.mesh.rotation.set(0, 0, 0);
+      }
+
+      movimentos = 0;                           // zera o contador
+      atualizarContador();
+      jogoEmAndamento = false;                  // sem jogo valendo
+      elMensagem.textContent = '';              // esconde a mensagem de vitória
+    }
+
+    btnReiniciar.addEventListener('click', reiniciarCubo);
 
     animate(); // dispara o loop pela primeira vez
   </script>
