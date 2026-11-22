@@ -579,11 +579,19 @@
 
     // Conta o movimento só quando o giro termina, e ignora os giros rápidos (embaralhar).
     aoFinalizarGiro = (mov) => {
-      if (!mov.rapido) registrarMovimento();
+      // Giro do jogador: conta e, se o cubo ficou resolvido, é vitória.
+      if (!mov.rapido) {
+        registrarMovimento();
+        if (jogoEmAndamento && !animacaoOcupada() && cuboResolvido()) {
+          jogoEmAndamento = false;   // evita repetir a mensagem
+          mostrarVitoria();
+        }
+      }
 
-      // Último giro do embaralhar terminou: libera os controles.
+      // Último giro do embaralhar terminou: libera os controles e começa o jogo.
       if (embaralhando && !animacaoOcupada()) {
         embaralhando = false;
+        jogoEmAndamento = true;
         bloquearControles(false);
       }
     };
@@ -646,6 +654,8 @@
       if (embaralhando || animacaoOcupada()) return;  // já está embaralhando ou há giro em andamento
 
       embaralhando = true;
+      jogoEmAndamento = false;       // ainda não é um jogo valendo
+      elMensagem.textContent = '';   // apaga a mensagem de vitória anterior
       movimentos = 0;                // começa o jogo com o contador zerado
       atualizarContador();
       bloquearControles(true);
@@ -658,7 +668,7 @@
 
     btnEmbaralhar.addEventListener('click', embaralhar);
 
-    // --- VERIFICA SE O CUBO ESTÁ RESOLVIDO (commit 6) ---
+    // --- VERIFICA SE O CUBO ESTÁ RESOLVIDO ---
 
     // Direção para onde aponta cada material do cubinho, antes de ele ser girado.
     // Mesma ordem do Three.js: +x, -x, +y, -y, +z, -z
@@ -695,6 +705,15 @@
         const cores = pecasDaFace(letra).map(c => corVoltadaPara(c, direcao));
         return cores.every(cor => cor === cores[0]);  // as 9 cores precisam ser iguais
       });
+    }
+
+        // --- DETECÇÃO DE VITÓRIA ---
+    const elMensagem = document.getElementById('mensagem');
+    let jogoEmAndamento = false; // só vira true quando um embaralhar termina
+
+    function mostrarVitoria() {
+      const palavra = movimentos === 1 ? 'movimento' : 'movimentos';
+      elMensagem.textContent = 'Parabéns! Você resolveu o cubo em ' + movimentos + ' ' + palavra + '!';
     }
 
     animate(); // dispara o loop pela primeira vez
