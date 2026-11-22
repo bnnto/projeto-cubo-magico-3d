@@ -251,11 +251,42 @@
           cubo.position.x = x * distancia;
           cubo.position.y = y * distancia;
           cubo.position.z = z * distancia;
-          cubinhos.push({mesh: cubo, x, y, z});
+          cubinhos.push({mesh: cubo, x, y, z, origem: {x, y, z}}); // origem nunca muda: diz quais lados do cubinho são coloridos
           cubo.add(new THREE.LineSegments(geoArestas, matArestas)); // contorno como filho do cubinho
           globalGroup.add(cubo);
         }       
       }
+    }
+
+    // --- TROCA DE TEMA EM TEMPO REAL ---
+    // Ordem dos materiais no Three.js: +x, -x, +y, -y, +z, -z
+    const CHAVES_FACE = ['direita', 'esquerda', 'cima', 'baixo', 'frente', 'tras'];
+
+    // Aplica um tema ao cubo que já existe: só troca a cor dos materiais.
+    // Não recria cubinhos e não mexe em posição nem rotação, então o cubo
+    // continua exatamente no estado atual (embaralhado ou não).
+    // Devolve true se o tema existe e foi aplicado.
+    function aplicarTema(chave) {
+      const tema = TEMAS[chave];
+      if (!tema) {
+        console.warn('Tema inválido:', chave);
+        return false;
+      }
+
+      temaAtual = chave;
+
+      cubinhos.forEach(c => {
+        const o = c.origem;
+        // Quais dos 6 lados desse cubinho eram externos na montagem original?
+        const externos = [o.x === 1, o.x === -1, o.y === 1, o.y === -1, o.z === 1, o.z === -1];
+
+        for (let i = 0; i < 6; i++) {
+          const cor = externos[i] ? tema[CHAVES_FACE[i]] : COR_INTERNA;
+          c.mesh.material[i].color.setHex(cor);   // troca só a cor, o material continua o mesmo
+        }
+      });
+
+      return true;
     }
 
     // ################################################################
